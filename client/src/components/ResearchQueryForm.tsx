@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 
 export interface ResearchQueryFormProps {
   onSubmit: (queryText: string, options?: AdvancedOptions) => void;
   isSubmitting?: boolean;
+  /** Pre-fill the input (e.g. when refining from a previous query). */
+  initialQueryText?: string;
 }
 
 export interface AdvancedOptions {
@@ -21,9 +23,13 @@ const DEPTH_LABELS: Record<NonNullable<AdvancedOptions['depth']>, string> = {
 export default function ResearchQueryForm({
   onSubmit,
   isSubmitting = false,
+  initialQueryText,
 }: ResearchQueryFormProps) {
-  const [queryText, setQueryText] = useState('');
+  const [queryText, setQueryText] = useState(initialQueryText ?? '');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  useEffect(() => {
+    if (initialQueryText != null) setQueryText(initialQueryText);
+  }, [initialQueryText]);
   const [depth, setDepth] = useState<AdvancedOptions['depth']>('standard');
   const [includeVault, setIncludeVault] = useState(true);
   const [maxSources, setMaxSources] = useState(20);

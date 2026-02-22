@@ -1,33 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, FileText, ExternalLink, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, ExternalLink, Trash2, Search, X, MessageSquarePlus } from 'lucide-react';
 import VaultUpload from '@/components/VaultUpload';
 import {
   fetchVaultDocuments,
+  searchVaultDocuments,
   createVaultDocument,
   deleteVaultDocument,
+  fetchDocumentAnnotations,
+  createDocumentAnnotation,
+  deleteDocumentAnnotation,
   type VaultDocument,
+  type DocumentAnnotation,
 } from '@/api';
 
 export default function Vault() {
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQ, setSearchQ] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<VaultDocument | null>(null);
+  const [previewAnnotations, setPreviewAnnotations] = useState<DocumentAnnotation[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
 
-  const loadDocs = async () => {
+  const loadDocs = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchVaultDocuments();
+      const data = searchQ.trim()
+        ? await searchVaultDocuments(searchQ.trim())
+        : await fetchVaultDocuments();
       setDocuments(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQ]);
 
   useEffect(() => {
     loadDocs();
-  }, []);
+  }, [loadDocs]);
 
   const handleUpload = async (params: {
     title: string;
@@ -42,7 +54,54 @@ export default function Vault() {
     if (!confirm('Remove this document from the Vault?')) return;
     try {
       await deleteVaultDocument(id);
+      if (previewDoc?.id === id) setPreviewDoc(null);
       await loadDocs();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openPreview = async (doc: VaultDocument) => {
+    setPreviewDoc(doc);
+    setPreviewAnnotations([]);
+    setNewNote('');
+    try {
+      const anns = await fetchDocumentAnnotations(doc.id);
+      setPreviewAnnotations(anns);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const refreshPreviewAnnotations = useCallback(async () => {
+    if (!previewDoc) return;
+    try {
+      const anns = await fetchDocumentAnnotations(previewDoc.id);
+      setPreviewAnnotations(anns);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [previewDoc]);
+
+  const handleAddAnnotation = async () => {
+    if (!previewDoc || !newNote.trim()) return;
+    setAddingNote(true);
+    try {
+      await createDocumentAnnotation(previewDoc.id, newNote.trim());
+      setNewNote('');
+      await refreshPreviewAnnotations();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const handleDeleteAnnotation = async (annId: number) => {
+    if (!previewDoc) return;
+    try {
+      await deleteDocumentAnnotation(previewDoc.id, annId);
+      await refreshPreviewAnnotations();
     } catch (err) {
       console.error(err);
     }
@@ -70,7 +129,19 @@ export default function Vault() {
         <VaultUpload onUpload={handleUpload} />
 
         <section>
-          <h2 className="font-semibold text-foreground mb-4">Your documents</h2>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <h2 className="font-semibold text-foreground">Your documents</h2>
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="search"
+                placeholder="Search vault…"
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
           {loading ? (
             <div className="text-muted-foreground text-sm py-8">Loading…</div>
           ) : documents.length === 0 ? (
@@ -89,7 +160,13 @@ export default function Vault() {
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-foreground">{doc.title}</h3>
+                    <button
+                      type="button"
+                      onClick={() => openPreview(doc)}
+                      className="text-left hover:opacity-80 transition-opacity"
+                    >
+                      <h3 className="font-medium text-foreground">{doc.title}</h3>
+                    </button>
                     {doc.content && (
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {doc.content}
@@ -110,20 +187,114 @@ export default function Vault() {
                       Added {new Date(doc.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(doc.id)}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
-                    aria-label="Delete document"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openPreview(doc)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      aria-label="Preview"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(doc.id)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                      aria-label="Delete document"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </section>
       </main>
+
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40"
+          onClick={() => setPreviewDoc(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Document preview"
+        >
+          <div
+            className="w-full max-w-xl bg-card border-l border-border shadow-xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+              <h2 className="font-semibold text-foreground truncate pr-2">{previewDoc.title}</h2>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="p-2 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {previewDoc.source_url && (
+                <a
+                  href={previewDoc.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  Source <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+              <div className="text-sm text-foreground whitespace-pre-wrap">
+                {previewDoc.content || 'No content.'}
+              </div>
+              <div className="border-t border-border pt-4">
+                <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
+                  <MessageSquarePlus className="w-4 h-4" />
+                  Annotations
+                </h3>
+                <div className="space-y-2 mb-3">
+                  {previewAnnotations.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 text-sm"
+                    >
+                      <p className="flex-1 min-w-0">{ann.note}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAnnotation(ann.id)}
+                        className="p-1.5 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+                        aria-label="Delete annotation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Add a note…"
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddAnnotation()}
+                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddAnnotation}
+                    disabled={!newNote.trim() || addingNote}
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    {addingNote ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,11 +12,14 @@ export interface ResearchQuery {
   status: ResearchQueryStatus;
   created_at: string;
   updated_at: string;
+  saved_at: string | null;
+  parent_query_id: number | null;
 }
 
 export interface ResearchQueryInsert {
   query_text: string;
   status?: ResearchQueryStatus;
+  parent_query_id?: number | null;
 }
 
 export interface VaultDocument {
@@ -143,6 +146,15 @@ CREATE TABLE IF NOT EXISTS user_feedback (
 
 CREATE INDEX IF NOT EXISTS idx_user_feedback_result ON user_feedback(research_result_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_query ON user_feedback(research_query_id);
+
+CREATE TABLE IF NOT EXISTS document_annotations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vault_document_id INTEGER NOT NULL REFERENCES vault_documents(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (vault_document_id) REFERENCES vault_documents(id)
+);
+CREATE INDEX IF NOT EXISTS idx_document_annotations_doc ON document_annotations(vault_document_id);
 `;
 
 async function getSqlJs(): Promise<SqlJsStatic> {
@@ -223,9 +235,15 @@ export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJs
     const info = db.exec("PRAGMA table_info(citations)");
     const columns = (info[0]?.values ?? []) as unknown[][];
     const hasSourceId = columns.some((col) => col[1] === 'source_id');
-    if (!hasSourceId) {
-      db.run('ALTER TABLE citations ADD COLUMN source_id TEXT');
-    }
+    if (!hasSourceId) db.run('ALTER TABLE citations ADD COLUMN source_id TEXT');
+  } catch {
+    // ignore
+  }
+  try {
+    const qInfo = db.exec("PRAGMA table_info(research_queries)");
+    const qCols = (qInfo[0]?.values ?? []) as unknown[][];
+    if (!qCols.some((c) => c[1] === 'saved_at')) db.run('ALTER TABLE research_queries ADD COLUMN saved_at TEXT');
+    if (!qCols.some((c) => c[1] === 'parent_query_id')) db.run('ALTER TABLE research_queries ADD COLUMN parent_query_id INTEGER REFERENCES research_queries(id)');
   } catch {
     // ignore
   }
@@ -269,8 +287,8 @@ export function insertResearchQuery(
   const status = data.status ?? 'pending';
   const id = runAndGetLastId(
     d,
-    'INSERT INTO research_queries (query_text, status) VALUES (?, ?)',
-    [data.query_text, status]
+    'INSERT INTO research_queries (query_text, status, parent_query_id) VALUES (?, ?, ?)',
+    [data.query_text, status, data.parent_query_id ?? null]
   );
   return getResearchQuery(id, d)!;
 }
@@ -284,16 +302,25 @@ export function getResearchQuery(
 }
 
 export function listResearchQueries(
-  opts?: { status?: ResearchQueryStatus; limit?: number },
+  opts?: { status?: ResearchQueryStatus; limit?: number; saved?: boolean; parent_query_id?: number },
   database?: SqlJsDatabase
 ): ResearchQuery[] {
   const d = database ?? getDb();
   let sql = 'SELECT * FROM research_queries';
-  const params: (string | number)[] = [];
+  const params: (string | number | null)[] = [];
+  const conditions: string[] = [];
   if (opts?.status) {
-    sql += ' WHERE status = ?';
+    conditions.push('status = ?');
     params.push(opts.status);
   }
+  if (opts?.saved === true) {
+    conditions.push('saved_at IS NOT NULL');
+  }
+  if (opts?.parent_query_id != null) {
+    conditions.push('parent_query_id = ?');
+    params.push(opts.parent_query_id);
+  }
+  if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
   sql += ' ORDER BY created_at DESC';
   if (opts?.limit) {
     sql += ' LIMIT ?';
@@ -311,6 +338,19 @@ export function updateResearchQueryStatus(
   d.run(
     "UPDATE research_queries SET status = ?, updated_at = datetime('now') WHERE id = ?",
     [status, id]
+  );
+  return getResearchQuery(id, d);
+}
+
+export function updateResearchQuerySaved(
+  id: number,
+  saved: boolean,
+  database?: SqlJsDatabase
+): ResearchQuery | null {
+  const d = database ?? getDb();
+  d.run(
+    "UPDATE research_queries SET saved_at = ?, updated_at = datetime('now') WHERE id = ?",
+    [saved ? new Date().toISOString() : null, id]
   );
   return getResearchQuery(id, d);
 }
@@ -348,6 +388,87 @@ export function listVaultDocuments(
     : 'SELECT * FROM vault_documents ORDER BY created_at DESC';
   return limit ? getRows<VaultDocument>(d, sql, [limit]) : getRows<VaultDocument>(d, sql);
 }
+
+/** Simple search: tokenize query, filter docs by term match in title/content, return by relevance. */
+export function searchVaultDocuments(
+  query: string,
+  limit: number = 50,
+  database?: SqlJsDatabase
+): VaultDocument[] {
+  const d = database ?? getDb();
+  const all = getRows<VaultDocument>(d, 'SELECT * FROM vault_documents ORDER BY created_at DESC', []);
+  const terms = query
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 1);
+  if (!terms.length) return all.slice(0, limit);
+  const scored = all.map((doc) => {
+    const text = [doc.title, doc.content ?? ''].join(' ').toLowerCase();
+    const hits = terms.filter((t) => text.includes(t)).length;
+    return { doc, score: hits / terms.length };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.filter((s) => s.score > 0).slice(0, limit).map((s) => s.doc);
+}
+
+export function getVaultDocumentsByIds(
+  ids: number[],
+  database?: SqlJsDatabase
+): VaultDocument[] {
+  if (!ids.length) return [];
+  const d = database ?? getDb();
+  const placeholders = ids.map(() => '?').join(',');
+  return getRows<VaultDocument>(d, `SELECT * FROM vault_documents WHERE id IN (${placeholders})`, ids);
+}
+
+// ---------- document_annotations ----------
+
+export interface DocumentAnnotation {
+  id: number;
+  vault_document_id: number;
+  note: string;
+  created_at: string;
+}
+
+export function listDocumentAnnotations(
+  vaultDocumentId: number,
+  database?: SqlJsDatabase
+): DocumentAnnotation[] {
+  const d = database ?? getDb();
+  return getRows<DocumentAnnotation>(
+    d,
+    'SELECT * FROM document_annotations WHERE vault_document_id = ? ORDER BY created_at',
+    [vaultDocumentId]
+  );
+}
+
+export function insertDocumentAnnotation(
+  vaultDocumentId: number,
+  note: string,
+  database?: SqlJsDatabase
+): DocumentAnnotation {
+  const d = database ?? getDb();
+  const id = runAndGetLastId(
+    d,
+    'INSERT INTO document_annotations (vault_document_id, note) VALUES (?, ?)',
+    [vaultDocumentId, note]
+  );
+  const row = getRow<DocumentAnnotation>(d, 'SELECT * FROM document_annotations WHERE id = ?', [id]);
+  if (!row) throw new Error('Insert failed');
+  return row;
+}
+
+export function deleteDocumentAnnotation(
+  id: number,
+  database?: SqlJsDatabase
+): boolean {
+  const d = database ?? getDb();
+  const n = runAndGetChanges(d, 'DELETE FROM document_annotations WHERE id = ?', [id]);
+  return n > 0;
+}
+
+// ---------- research_results ----------
 
 export function deleteVaultDocument(
   id: number,

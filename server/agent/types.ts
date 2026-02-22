@@ -36,9 +36,11 @@ export interface ResearchReportContent {
   query: string;
 }
 
-/** Options for retrieval (vault + public limits). */
+/** Options for retrieval (vault + public limits; optional vault filter). */
 export interface RetrievalOptions {
   vaultLimit?: number;
   publicLimit?: number;
   maxTotal?: number;
+  /** When set, only these vault document IDs are used (workspace-aware). */
+  vaultDocIds?: number[];
 }

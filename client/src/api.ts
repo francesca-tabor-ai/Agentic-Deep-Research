@@ -6,6 +6,8 @@ export interface ResearchQuery {
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
+  saved_at: string | null;
+  parent_query_id: number | null;
 }
 
 export interface VaultDocument {
@@ -17,10 +19,21 @@ export interface VaultDocument {
   updated_at: string;
 }
 
-export async function fetchQueries(limit = 50, status?: string): Promise<ResearchQuery[]> {
+export interface FetchQueriesOpts {
+  limit?: number;
+  status?: string;
+  saved?: boolean;
+  parent_query_id?: number;
+}
+
+export async function fetchQueries(limitOrOpts: number | FetchQueriesOpts = 50): Promise<ResearchQuery[]> {
+  const opts = typeof limitOrOpts === 'number' ? { limit: limitOrOpts } : limitOrOpts;
+  const limit = opts.limit ?? 50;
   const url = new URL(`${BASE}/queries`);
   url.searchParams.set('limit', String(limit));
-  if (status) url.searchParams.set('status', status);
+  if (opts.status) url.searchParams.set('status', opts.status);
+  if (opts.saved === true) url.searchParams.set('saved', 'true');
+  if (opts.parent_query_id != null) url.searchParams.set('parent_query_id', String(opts.parent_query_id));
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -32,12 +45,33 @@ export async function fetchQuery(id: number): Promise<ResearchQuery> {
   return res.json();
 }
 
-export async function createQuery(query_text: string, status?: string): Promise<ResearchQuery> {
+export async function createQuery(params: {
+  query_text: string;
+  status?: string;
+  parent_query_id?: number | null;
+}): Promise<ResearchQuery> {
+  const { query_text, status, parent_query_id } = params;
   const res = await fetch(`${BASE}/queries`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query_text, status }),
+    body: JSON.stringify({ query_text, status, parent_query_id: parent_query_id ?? undefined }),
   });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateQuerySaved(id: number, saved: boolean): Promise<{ id: number; saved: boolean }> {
+  const res = await fetch(`${BASE}/queries/${id}/saved`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ saved }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchRelatedQueries(queryId: number): Promise<ResearchQuery[]> {
+  const res = await fetch(`${BASE}/queries/${queryId}/related`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -45,6 +79,15 @@ export async function createQuery(query_text: string, status?: string): Promise<
 export async function fetchVaultDocuments(limit?: number): Promise<VaultDocument[]> {
   const url = new URL(`${BASE}/vault/documents`);
   if (limit != null) url.searchParams.set('limit', String(limit));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function searchVaultDocuments(query: string, limit = 50): Promise<VaultDocument[]> {
+  const url = new URL(`${BASE}/vault/documents`);
+  url.searchParams.set('q', query);
+  url.searchParams.set('limit', String(limit));
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -107,8 +150,15 @@ export interface RunResearchOutcome {
   citationCount: number;
 }
 
-export async function runQueryResearch(queryId: number): Promise<RunResearchOutcome> {
-  const res = await fetch(`${BASE}/queries/${queryId}/run`, { method: 'POST' });
+export async function runQueryResearch(
+  queryId: number,
+  options?: { vaultDocIds?: number[] }
+): Promise<RunResearchOutcome> {
+  const res = await fetch(`${BASE}/queries/${queryId}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options ?? {}),
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -126,4 +176,42 @@ export async function fetchResult(resultId: number): Promise<{
   const res = await fetch(`${BASE}/results/${resultId}`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+// ---------- Document annotations ----------
+
+export interface DocumentAnnotation {
+  id: number;
+  vault_document_id: number;
+  note: string;
+  created_at: string;
+}
+
+export async function fetchDocumentAnnotations(vaultDocumentId: number): Promise<DocumentAnnotation[]> {
+  const res = await fetch(`${BASE}/vault/documents/${vaultDocumentId}/annotations`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function createDocumentAnnotation(
+  vaultDocumentId: number,
+  note: string
+): Promise<DocumentAnnotation> {
+  const res = await fetch(`${BASE}/vault/documents/${vaultDocumentId}/annotations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteDocumentAnnotation(
+  vaultDocumentId: number,
+  annotationId: number
+): Promise<void> {
+  const res = await fetch(`${BASE}/vault/documents/${vaultDocumentId}/annotations/${annotationId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await res.text());
 }

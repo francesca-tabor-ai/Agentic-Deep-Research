@@ -7,6 +7,7 @@ import {
   getResearchQuery,
   updateResearchQueryStatus,
   listVaultDocuments,
+  getVaultDocumentsByIds,
   insertResearchResult,
   insertCitation,
 } from '../db.js';
@@ -37,10 +38,20 @@ export interface RunResearchResult {
   citationCount: number;
 }
 
+export interface RunResearchOptions {
+  /** When set, only these vault document IDs are used (workspace-aware). */
+  vaultDocIds?: number[];
+}
+
 /**
  * Multi-step research run: in_progress → retrieve (vault + public) → synthesize → cite → save → completed.
+ * Options.vaultDocIds restricts retrieval to specific vault docs (workspace-aware).
  */
-export function runResearch(queryId: number, deps: RunResearchDeps = defaultDeps): RunResearchResult {
+export function runResearch(
+  queryId: number,
+  deps: RunResearchDeps = defaultDeps,
+  options?: RunResearchOptions
+): RunResearchResult {
   const query = deps.getQuery(queryId);
   if (!query) {
     deps.updateStatus(queryId, 'failed');
@@ -50,7 +61,11 @@ export function runResearch(queryId: number, deps: RunResearchDeps = defaultDeps
   deps.updateStatus(queryId, 'in_progress');
 
   try {
-    const vaultDocs = deps.getVaultDocuments();
+    const vaultDocs =
+      options?.vaultDocIds?.length &&
+      options.vaultDocIds.length > 0
+        ? getVaultDocumentsByIds(options.vaultDocIds)
+        : deps.getVaultDocuments();
     const chunks = retrieve(query.query_text, vaultDocs);
 
     const synthesis: SynthesisOutput = synthesize(query.query_text, chunks);

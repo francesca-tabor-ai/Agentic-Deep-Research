@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Play, Loader2, AlertCircle } from 'lucide-react';
 import ResearchQueryForm, { type AdvancedOptions } from '@/components/ResearchQueryForm';
@@ -10,16 +10,22 @@ import {
   fetchQueryResults,
   runQueryResearch,
   fetchResult,
+  fetchRelatedQueries,
+  type ResearchQuery,
 } from '@/api';
 
 export default function Research() {
-  const [queries, setQueries] = useState<Awaited<ReturnType<typeof fetchQueries>>>([]);
+  const [queries, setQueries] = useState<ResearchQuery[]>([]);
+  const [relatedQueries, setRelatedQueries] = useState<ResearchQuery[]>([]);
+  const [savedOnly, setSavedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [runLoading, setRunLoading] = useState(false);
   const [resultLoading, setResultLoading] = useState(false);
   const [resultError, setResultError] = useState<string | null>(null);
   const [resultData, setResultData] = useState<Awaited<ReturnType<typeof fetchResult>> | null>(null);
+  const [refillKey, setRefillKey] = useState<number | null>(null);
+  const [refillText, setRefillText] = useState<string | null>(null);
   const [, setLocation] = useLocation();
 
   const selectedId = (() => {
@@ -28,21 +34,40 @@ export default function Research() {
     return q ? parseInt(q, 10) : null;
   })();
 
-  const loadQueries = async () => {
+  const loadQueries = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchQueries(50);
+      const data = await fetchQueries({ limit: 50, ...(savedOnly && { saved: true }) });
       setQueries(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [savedOnly]);
 
   useEffect(() => {
     loadQueries();
-  }, []);
+  }, [loadQueries]);
+
+  useEffect(() => {
+    if (selectedId == null) {
+      setRelatedQueries([]);
+      return;
+    }
+    let cancelled = false;
+    fetchRelatedQueries(selectedId).then((data) => {
+      if (!cancelled) setRelatedQueries(data);
+    }).catch(() => { if (!cancelled) setRelatedQueries([]); });
+    return () => { cancelled = true; };
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (selectedId != null && refillKey != null && selectedId !== refillKey) {
+      setRefillKey(null);
+      setRefillText(null);
+    }
+  }, [selectedId, refillKey]);
 
   const loadResultForQuery = async (queryId: number) => {
     setResultLoading(true);
@@ -73,13 +98,29 @@ export default function Research() {
   const handleSubmit = async (queryText: string, _options?: AdvancedOptions) => {
     setSubmitting(true);
     try {
-      const created = await createQuery(queryText, 'pending');
+      const created = await createQuery({ query_text: queryText, status: 'pending' });
       await loadQueries();
       setLocation(`/research?q=${created.id}`);
     } catch (err) {
       console.error(err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleRefine = async (q: ResearchQuery) => {
+    try {
+      const created = await createQuery({
+        query_text: q.query_text,
+        status: 'pending',
+        parent_query_id: q.id,
+      });
+      setRefillKey(created.id);
+      setRefillText(created.query_text);
+      await loadQueries();
+      setLocation(`/research?q=${created.id}`);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -103,8 +144,13 @@ export default function Research() {
     <div className="min-h-screen bg-background flex flex-col sm:flex-row">
       <QueryHistorySidebar
         queries={queries}
+        relatedQueries={relatedQueries}
         isLoading={loading}
         selectedId={selectedId ?? undefined}
+        savedOnly={savedOnly}
+        onSavedFilterChange={setSavedOnly}
+        onRefine={handleRefine}
+        onSaveChange={loadQueries}
       />
       <main className="flex-1 min-w-0 flex flex-col">
         <header className="p-4 sm:p-6 border-b border-border flex items-center gap-4">
@@ -122,7 +168,12 @@ export default function Research() {
         </header>
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
           <div className="max-w-2xl mb-8">
-            <ResearchQueryForm onSubmit={handleSubmit} isSubmitting={submitting} />
+            <ResearchQueryForm
+              key={refillKey ?? 'default'}
+              onSubmit={handleSubmit}
+              isSubmitting={submitting}
+              initialQueryText={refillText ?? undefined}
+            />
           </div>
 
           {selectedId != null && (

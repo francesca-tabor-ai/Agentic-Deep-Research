@@ -92,6 +92,7 @@ export function retrieveFromPublicSources(
 
 /**
  * Combined retrieval: vault + public, merged and sorted by score, capped at maxTotal.
+ * When vaultDocIds is set, only those vault documents are used (workspace-aware).
  */
 export function retrieve(
   query: string,
@@ -101,8 +102,13 @@ export function retrieve(
   const vaultLimit = options.vaultLimit ?? DEFAULT_VAULT_LIMIT;
   const publicLimit = options.publicLimit ?? DEFAULT_PUBLIC_LIMIT;
   const maxTotal = options.maxTotal ?? DEFAULT_MAX_TOTAL;
+  const vault =
+    options.vaultDocIds?.length &&
+    options.vaultDocIds.length > 0
+      ? vaultDocuments.filter((d) => options.vaultDocIds!.includes(d.id))
+      : vaultDocuments;
 
-  const fromVault = retrieveFromVault(query, vaultDocuments, vaultLimit);
+  const fromVault = retrieveFromVault(query, vault, vaultLimit);
   const fromPublic = retrieveFromPublicSources(query, publicLimit);
   const combined = [...fromVault, ...fromPublic].sort((a, b) => b.score - a.score);
   return combined.slice(0, maxTotal);
