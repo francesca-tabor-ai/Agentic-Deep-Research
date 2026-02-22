@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "api": "tsx server/api.ts",
+    "start": "NODE_ENV=production tsx server/api.ts",
     "dev:all": "concurrently -n v,a \"npm run dev\" \"npm run api\"",
     "build": "vite build",
     "preview": "vite preview",
