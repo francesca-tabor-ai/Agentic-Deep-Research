@@ -203,8 +203,8 @@ export default function Research() {
               </div>
 
               {resultError && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 text-sm" role="alert">
+                  <AlertCircle className="w-4 h-4 shrink-0" aria-hidden />
                   {resultError}
                 </div>
               )}

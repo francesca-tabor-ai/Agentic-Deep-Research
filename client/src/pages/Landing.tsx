@@ -12,13 +12,19 @@ import {
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
+      <a
+        href="#main-content"
+        className="absolute -left-[9999px] w-px h-px overflow-hidden focus:left-4 focus:top-4 focus:z-[100] focus:w-auto focus:h-auto focus:overflow-visible focus:px-4 focus:py-2 focus:rounded-lg focus:ring-2 focus:ring-primary focus:bg-background focus:outline-none"
+      >
+        Skip to main content
+      </a>
       {/* Hero */}
       <header className="border-b border-border/60 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <span className="font-serif font-semibold text-lg text-foreground">
             Agentic Deep Research
           </span>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-6" aria-label="Main navigation">
             <Link
               href="/research"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -48,7 +54,7 @@ export default function Landing() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24" role="main">
         <section className="text-center max-w-3xl mx-auto mb-20">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium border border-primary/20 mb-6">
             <Sparkles className="w-4 h-4" />
@@ -151,7 +157,7 @@ export default function Landing() {
 
       <footer className="border-t border-border mt-24 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center text-sm text-muted-foreground">
-          Agentic Deep Research — Phase 2 UI
+          Agentic Deep Research — citation-grounded research with vault and metrics
         </div>
       </footer>
     </div>

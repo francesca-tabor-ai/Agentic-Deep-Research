@@ -251,10 +251,12 @@ function FeedbackSection({
   const [rating, setRating] = useState<number | null>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating == null && !text.trim()) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await submitFeedback({
         research_result_id: resultId,
@@ -265,18 +267,23 @@ function FeedbackSection({
       setText('');
       onSubmitted?.();
     } catch (err) {
-      console.error(err);
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit feedback');
     } finally {
       setSubmitting(false);
     }
   };
   return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
+    <section className="rounded-xl border border-border bg-card overflow-hidden" aria-labelledby="feedback-heading">
       <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-primary" />
-        <h2 className="font-semibold text-foreground">Rate this research</h2>
+        <h2 id="feedback-heading" className="font-semibold text-foreground">Rate this research</h2>
       </div>
       <div className="p-4 space-y-4">
+        {submitError && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {submitError}
+          </p>
+        )}
         {feedback.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Previous feedback</p>

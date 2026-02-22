@@ -1,18 +1,31 @@
 # Agentic Deep Research
 
-Minimal research backend (SQLite, types, tests) with a full reference app in **Manus**.
+Citation-grounded research app: natural language queries, vault documents, synthesis with sources, feedback, and metrics. SQLite backend + Vite React UI.
 
 ## Quick start
 
-- **Root (this package):** `npm run db:init` to create the SQLite DB; `npm test` to run tests.
-- **Full app (Manus):** See [MANUS.md](./MANUS.md) for what Manus contains and how to run or reuse it (`cd Manus && pnpm install && pnpm dev`).
+1. **Database:** `npm run db:init` (creates `data/research.db`).
+2. **Run app:** `npm run dev:all` — API on http://localhost:3000, UI on http://localhost:5173.
+3. **Tests:** `npm test`.
+
+See **[docs/USER-GUIDE.md](./docs/USER-GUIDE.md)** for using Research, Vault, and Metrics.
 
 ## Layout
 
 | Path | Description |
 |------|-------------|
-| `server/` | SQLite schema and DB helpers (research queries, vault, results, citations, feedback). |
-| `Manus/` | Full LeapSpace Agentic Deep Research app: MySQL + Drizzle, tRPC, auth, LLM research agent, Vite + React UI. |
-| [MANUS.md](./MANUS.md) | **Utilisation guide** – what’s in Manus and how to use or copy from it. |
+| `server/` | API, SQLite schema (queries, vault, results, citations, feedback, metrics), research agent (retrieval, synthesis, runner). |
+| `client/` | Vite + React UI: Research, Vault, Metrics, landing. |
+| `docs/` | [User guide](./docs/USER-GUIDE.md), [Changelog](./docs/CHANGELOG.md). |
+| `Manus/` | Full reference app (MySQL, Drizzle, tRPC, auth). See [MANUS.md](./MANUS.md). |
 
-Read **MANUS.md** to utilise Manus (schema, research agent flow, UI patterns) in this repo.
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Vite dev server (UI only). |
+| `npm run api` | Start API server. |
+| `npm run dev:all` | API + UI concurrently. |
+| `npm run build` | Production build (client). |
+| `npm test` | Vitest (unit + integration). |
+| `npm run db:init` | Initialize SQLite database. |
