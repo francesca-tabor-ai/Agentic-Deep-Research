@@ -16,7 +16,7 @@ See **[docs/USER-GUIDE.md](./docs/USER-GUIDE.md)** for using Research, Vault, an
 |------|-------------|
 | `server/` | API, SQLite schema (queries, vault, results, citations, feedback, metrics), research agent (retrieval, synthesis, runner). |
 | `client/` | Vite + React UI: Research, Vault, Metrics, landing. |
-| `docs/` | [User guide](./docs/USER-GUIDE.md), [Changelog](./docs/CHANGELOG.md). |
+| `docs/` | [User guide](./docs/USER-GUIDE.md), [Changelog](./docs/CHANGELOG.md), [Roadmap](./docs/ROADMAP.md) (future phases). |
 | `Manus/` | Full reference app (MySQL, Drizzle, tRPC, auth). See [MANUS.md](./MANUS.md). |
 
 ## Scripts
