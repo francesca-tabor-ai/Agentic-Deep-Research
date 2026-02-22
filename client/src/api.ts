@@ -85,7 +85,19 @@ export interface Citation {
   source_url: string | null;
   title: string | null;
   snippet: string | null;
+  source_id: string | null;
   created_at: string;
+}
+
+/** Parsed report content from result.content (JSON). */
+export interface ResearchReportContent {
+  summary: string;
+  sections: Array<{ heading: string; text: string; sourceIds: string[] }>;
+  confidence: number;
+  query: string;
+  consensus?: string[];
+  disagreements?: string[];
+  researchGaps?: string[];
 }
 
 export interface RunResearchOutcome {

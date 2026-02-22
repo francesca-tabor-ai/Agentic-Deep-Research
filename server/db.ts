@@ -54,6 +54,7 @@ export interface Citation {
   source_url: string | null;
   title: string | null;
   snippet: string | null;
+  source_id: string | null;
   created_at: string;
 }
 
@@ -62,6 +63,7 @@ export interface CitationInsert {
   source_url?: string | null;
   title?: string | null;
   snippet?: string | null;
+  source_id?: string | null;
 }
 
 export interface UserFeedback {
@@ -217,6 +219,16 @@ export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJs
     db = new SQL.Database(buf ?? undefined);
   }
   db.exec(SCHEMA);
+  try {
+    const info = db.exec("PRAGMA table_info(citations)");
+    const columns = (info[0]?.values ?? []) as unknown[][];
+    const hasSourceId = columns.some((col) => col[1] === 'source_id');
+    if (!hasSourceId) {
+      db.run('ALTER TABLE citations ADD COLUMN source_id TEXT');
+    }
+  } catch {
+    // ignore
+  }
   dbPath = dbPathArg;
   return db;
 }
@@ -390,12 +402,13 @@ export function insertCitation(
   const d = database ?? getDb();
   const id = runAndGetLastId(
     d,
-    'INSERT INTO citations (research_result_id, source_url, title, snippet) VALUES (?, ?, ?, ?)',
+    'INSERT INTO citations (research_result_id, source_url, title, snippet, source_id) VALUES (?, ?, ?, ?, ?)',
     [
       data.research_result_id,
       data.source_url ?? null,
       data.title ?? null,
       data.snippet ?? null,
+      data.source_id ?? null,
     ]
   );
   return getCitation(id, d)!;

@@ -19,7 +19,7 @@ export interface RunResearchDeps {
   updateStatus: (id: number, status: 'in_progress' | 'completed' | 'failed') => ReturnType<typeof updateResearchQueryStatus>;
   getVaultDocuments: () => VaultDocument[];
   insertResult: (data: { research_query_id: number; content: string | null; summary: string | null }) => ReturnType<typeof insertResearchResult>;
-  insertCitationRecord: (data: { research_result_id: number; source_url: string | null; title: string | null; snippet: string | null }) => ReturnType<typeof insertCitation>;
+  insertCitationRecord: (data: { research_result_id: number; source_url: string | null; title: string | null; snippet: string | null; source_id?: string | null }) => ReturnType<typeof insertCitation>;
 }
 
 const defaultDeps: RunResearchDeps = {
@@ -77,6 +77,7 @@ export function runResearch(queryId: number, deps: RunResearchDeps = defaultDeps
         source_url: c.url,
         title: c.title,
         snippet: c.snippet,
+        source_id: c.sourceId,
       });
     }
 
