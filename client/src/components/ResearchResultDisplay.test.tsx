@@ -16,6 +16,9 @@ const mockResult: ResearchResult = {
     confidence: 0.85,
   }),
   created_at: '2025-01-01T00:00:00Z',
+  confidence: null,
+  duration_ms: null,
+  reasoning_snapshot: null,
 };
 
 const mockCitations: Citation[] = [

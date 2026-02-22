@@ -77,8 +77,8 @@ export default function Research() {
       const results = await fetchQueryResults(queryId);
       if (results.length === 0) return;
       const latest = results[0];
-      const { result, citations } = await fetchResult(latest.id);
-      setResultData({ result, citations });
+      const { result, citations, feedback } = await fetchResult(latest.id);
+      setResultData({ result, citations, feedback });
     } catch (err) {
       setResultError(err instanceof Error ? err.message : 'Failed to load result');
     } finally {
@@ -130,8 +130,8 @@ export default function Research() {
     setResultError(null);
     try {
       const outcome = await runQueryResearch(selectedId);
-      const { result, citations } = await fetchResult(outcome.researchResultId);
-      setResultData({ result, citations });
+      const { result, citations, feedback } = await fetchResult(outcome.researchResultId);
+      setResultData({ result, citations, feedback });
       await loadQueries();
     } catch (err) {
       setResultError(err instanceof Error ? err.message : 'Run failed');
@@ -220,6 +220,8 @@ export default function Research() {
                 <ResearchResultDisplay
                   result={resultData.result}
                   citations={resultData.citations}
+                  feedback={resultData.feedback}
+                  onFeedbackSubmitted={() => selectedId != null && loadResultForQuery(selectedId)}
                 />
               )}
 

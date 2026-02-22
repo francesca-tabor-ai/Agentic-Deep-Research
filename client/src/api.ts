@@ -120,6 +120,9 @@ export interface ResearchResult {
   content: string | null;
   summary: string | null;
   created_at: string;
+  confidence: number | null;
+  duration_ms: number | null;
+  reasoning_snapshot: string | null;
 }
 
 export interface Citation {
@@ -169,11 +172,54 @@ export async function fetchQueryResults(queryId: number): Promise<ResearchResult
   return res.json();
 }
 
+export interface UserFeedback {
+  id: number;
+  research_result_id: number | null;
+  research_query_id: number | null;
+  rating: number | null;
+  feedback_text: string | null;
+  created_at: string;
+}
+
 export async function fetchResult(resultId: number): Promise<{
   result: ResearchResult;
   citations: Citation[];
+  feedback: UserFeedback[];
 }> {
   const res = await fetch(`${BASE}/results/${resultId}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function submitFeedback(params: {
+  research_result_id?: number | null;
+  research_query_id?: number | null;
+  rating?: number | null;
+  feedback_text?: string | null;
+}): Promise<UserFeedback> {
+  const res = await fetch(`${BASE}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export interface ResearchMetrics {
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  avgConfidence: number | null;
+  avgDurationMs: number | null;
+  totalFeedbackCount: number;
+  avgRating: number | null;
+  ratingDistribution: { rating: number; count: number }[];
+  recentResultIds: number[];
+}
+
+export async function fetchMetrics(): Promise<ResearchMetrics> {
+  const res = await fetch(`${BASE}/metrics`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

@@ -3,6 +3,7 @@ import cors from 'cors';
 import {
   initDb,
   closeDb,
+  DEFAULT_DB_PATH,
   listResearchQueries,
   insertResearchQuery,
   getResearchQuery,
@@ -17,14 +18,28 @@ import {
   listDocumentAnnotations,
   insertDocumentAnnotation,
   deleteDocumentAnnotation,
+  insertUserFeedback,
+  listUserFeedbackByResultId,
+  listUserFeedbackByQueryId,
+  getResearchMetrics,
 } from './db.js';
+import { createServer } from 'http';
 import { runResearch } from './agent/runner.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost');
+const isProduction = process.env.NODE_ENV === 'production';
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+// CORS: in production allow CORS_ORIGIN; in dev default to Vite
+const corsOrigin = process.env.CORS_ORIGIN || (isProduction ? undefined : 'http://localhost:5173');
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '10mb' }));
+
+// ---------- Health (for load balancers / orchestrators) ----------
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // ---------- Research queries ----------
 app.get('/api/queries', (req, res) => {
@@ -38,9 +53,13 @@ app.get('/api/queries', (req, res) => {
     res.json(queries);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to list queries' });
+    res.status(500).json({ error: isProduction ? 'Failed to list queries' : (err instanceof Error ? err.message : 'Failed to list queries') });
+    return;
   }
 });
+
+const MAX_QUERY_TEXT_LENGTH = 10_000;
+const MAX_TITLE_LENGTH = 2_000;
 
 app.post('/api/queries', (req, res) => {
   try {
@@ -49,15 +68,25 @@ app.post('/api/queries', (req, res) => {
       res.status(400).json({ error: 'query_text is required' });
       return;
     }
+    const trimmed = query_text.trim();
+    if (!trimmed) {
+      res.status(400).json({ error: 'query_text cannot be empty' });
+      return;
+    }
+    if (trimmed.length > MAX_QUERY_TEXT_LENGTH) {
+      res.status(400).json({ error: `query_text must be at most ${MAX_QUERY_TEXT_LENGTH} characters` });
+      return;
+    }
     const query = insertResearchQuery({
-      query_text,
+      query_text: trimmed,
       status,
       parent_query_id: parent_query_id != null && Number.isInteger(Number(parent_query_id)) ? Number(parent_query_id) : undefined,
     });
     res.status(201).json(query);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create query' });
+    res.status(500).json({ error: isProduction ? 'Failed to create query' : (err instanceof Error ? err.message : 'Failed to create query') });
+    return;
   }
 });
 
@@ -76,7 +105,8 @@ app.get('/api/queries/:id', (req, res) => {
     res.json(query);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to get query' });
+    res.status(500).json({ error: isProduction ? 'Failed to get query' : (err instanceof Error ? err.message : 'Failed to get query') });
+    return;
   }
 });
 
@@ -91,7 +121,8 @@ app.get('/api/queries/:id/related', (req, res) => {
     res.json(queries);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to list related queries' });
+    res.status(500).json({ error: isProduction ? 'Failed to list related queries' : (err instanceof Error ? err.message : 'Failed to list related queries') });
+    return;
   }
 });
 
@@ -111,7 +142,8 @@ app.patch('/api/queries/:id/saved', (req, res) => {
     res.json({ id, saved });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to update saved state' });
+    res.status(500).json({ error: isProduction ? 'Failed to update saved state' : (err instanceof Error ? err.message : 'Failed to update saved state') });
+    return;
   }
 });
 
@@ -131,7 +163,8 @@ app.post('/api/queries/:id/run', (req, res) => {
     res.json(outcome);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Research run failed' });
+    res.status(500).json({ error: isProduction ? 'Research run failed' : (err instanceof Error ? err.message : 'Research run failed') });
+    return;
   }
 });
 
@@ -146,7 +179,8 @@ app.get('/api/queries/:id/results', (req, res) => {
     res.json(results);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to list results' });
+    res.status(500).json({ error: isProduction ? 'Failed to list results' : (err instanceof Error ? err.message : 'Failed to list results') });
+    return;
   }
 });
 
@@ -163,10 +197,83 @@ app.get('/api/results/:id', (req, res) => {
       return;
     }
     const citations = listCitationsByResultId(id);
-    res.json({ result, citations });
+    const feedback = listUserFeedbackByResultId(id);
+    res.json({ result, citations, feedback });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to get result' });
+    res.status(500).json({ error: isProduction ? 'Failed to get result' : (err instanceof Error ? err.message : 'Failed to get result') });
+    return;
+  }
+});
+
+// ---------- Feedback ----------
+app.get('/api/results/:id/feedback', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+    const feedback = listUserFeedbackByResultId(id);
+    res.json(feedback);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: isProduction ? 'Failed to list feedback' : (err instanceof Error ? err.message : 'Failed to list feedback') });
+    return;
+  }
+});
+
+app.get('/api/queries/:id/feedback', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+    const feedback = listUserFeedbackByQueryId(id);
+    res.json(feedback);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: isProduction ? 'Failed to list feedback' : (err instanceof Error ? err.message : 'Failed to list feedback') });
+    return;
+  }
+});
+
+app.post('/api/feedback', (req, res) => {
+  try {
+    const { research_result_id, research_query_id, rating, feedback_text } = req.body ?? {};
+    if (research_result_id == null && research_query_id == null) {
+      res.status(400).json({ error: 'research_result_id or research_query_id is required' });
+      return;
+    }
+    const ratingNum = rating != null ? Number(rating) : null;
+    if (ratingNum != null && (ratingNum < 1 || ratingNum > 5 || !Number.isInteger(ratingNum))) {
+      res.status(400).json({ error: 'rating must be an integer 1–5' });
+      return;
+    }
+    const feedback = insertUserFeedback({
+      research_result_id: research_result_id != null && Number.isInteger(Number(research_result_id)) ? Number(research_result_id) : null,
+      research_query_id: research_query_id != null && Number.isInteger(Number(research_query_id)) ? Number(research_query_id) : null,
+      rating: ratingNum,
+      feedback_text: typeof feedback_text === 'string' ? feedback_text.trim() || null : null,
+    });
+    res.status(201).json(feedback);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: isProduction ? 'Failed to submit feedback' : (err instanceof Error ? err.message : 'Failed to submit feedback') });
+    return;
+  }
+});
+
+// ---------- Metrics (dashboard) ----------
+app.get('/api/metrics', (_req, res) => {
+  try {
+    const metrics = getResearchMetrics();
+    res.json(metrics);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: isProduction ? 'Failed to load metrics' : (err instanceof Error ? err.message : 'Failed to load metrics') });
+    return;
   }
 });
 
@@ -184,7 +291,8 @@ app.get('/api/vault/documents', (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to list documents' });
+    res.status(500).json({ error: isProduction ? 'Failed to list documents' : (err instanceof Error ? err.message : 'Failed to list documents') });
+    return;
   }
 });
 
@@ -195,15 +303,25 @@ app.post('/api/vault/documents', (req, res) => {
       res.status(400).json({ error: 'title is required' });
       return;
     }
+    const titleTrimmed = title.trim();
+    if (!titleTrimmed) {
+      res.status(400).json({ error: 'title cannot be empty' });
+      return;
+    }
+    if (titleTrimmed.length > MAX_TITLE_LENGTH) {
+      res.status(400).json({ error: `title must be at most ${MAX_TITLE_LENGTH} characters` });
+      return;
+    }
     const doc = insertVaultDocument({
-      title: title.trim(),
+      title: titleTrimmed,
       content: typeof content === 'string' ? content : null,
       source_url: typeof source_url === 'string' ? source_url : null,
     });
     res.status(201).json(doc);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create document' });
+    res.status(500).json({ error: isProduction ? 'Failed to create document' : (err instanceof Error ? err.message : 'Failed to create document') });
+    return;
   }
 });
 
@@ -222,7 +340,8 @@ app.delete('/api/vault/documents/:id', (req, res) => {
     res.status(204).send();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to delete document' });
+    res.status(500).json({ error: isProduction ? 'Failed to delete document' : (err instanceof Error ? err.message : 'Failed to delete document') });
+    return;
   }
 });
 
@@ -238,7 +357,8 @@ app.get('/api/vault/documents/:id/annotations', (req, res) => {
     res.json(annotations);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to list annotations' });
+    res.status(500).json({ error: isProduction ? 'Failed to list annotations' : (err instanceof Error ? err.message : 'Failed to list annotations') });
+    return;
   }
 });
 
@@ -258,7 +378,8 @@ app.post('/api/vault/documents/:id/annotations', (req, res) => {
     res.status(201).json(annotation);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create annotation' });
+    res.status(500).json({ error: isProduction ? 'Failed to create annotation' : (err instanceof Error ? err.message : 'Failed to create annotation') });
+    return;
   }
 });
 
@@ -278,14 +399,35 @@ app.delete('/api/vault/documents/:docId/annotations/:annId', (req, res) => {
     res.status(204).send();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to delete annotation' });
+    res.status(500).json({ error: isProduction ? 'Failed to delete annotation' : (err instanceof Error ? err.message : 'Failed to delete annotation') });
+    return;
   }
 });
 
+let server: ReturnType<typeof createServer> | null = null;
+
+function shutdown(signal: string) {
+  return () => {
+    console.log(`${signal} received, shutting down gracefully...`);
+    if (server) {
+      server.close((err) => {
+        if (err) console.error('Error closing server:', err);
+        closeDb();
+        process.exit(err ? 1 : 0);
+      });
+    } else {
+      closeDb();
+      process.exit(0);
+    }
+  };
+}
+
 async function main() {
-  await initDb();
-  app.listen(PORT, () => {
-    console.log(`API listening on http://localhost:${PORT}`);
+  const dbPath = process.env.DATABASE_PATH || process.env.DB_PATH || DEFAULT_DB_PATH;
+  await initDb(dbPath);
+  server = createServer(app);
+  server.listen(PORT, HOST, () => {
+    console.log(`API listening on http://${HOST}:${PORT}`);
   });
 }
 
@@ -294,7 +436,5 @@ main().catch((err) => {
   process.exit(1);
 });
 
-process.on('SIGINT', () => {
-  closeDb();
-  process.exit(0);
-});
+process.on('SIGINT', shutdown('SIGINT'));
+process.on('SIGTERM', shutdown('SIGTERM'));

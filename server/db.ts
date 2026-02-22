@@ -2,7 +2,7 @@ import initSqlJs, { SqlJsStatic } from 'sql.js';
 import path from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 
-const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'research.db');
+export const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'research.db');
 
 export type ResearchQueryStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
@@ -43,12 +43,18 @@ export interface ResearchResult {
   content: string | null;
   summary: string | null;
   created_at: string;
+  confidence: number | null;
+  duration_ms: number | null;
+  reasoning_snapshot: string | null;
 }
 
 export interface ResearchResultInsert {
   research_query_id: number;
   content?: string | null;
   summary?: string | null;
+  confidence?: number | null;
+  duration_ms?: number | null;
+  reasoning_snapshot?: string | null;
 }
 
 export interface Citation {
@@ -244,6 +250,15 @@ export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJs
     const qCols = (qInfo[0]?.values ?? []) as unknown[][];
     if (!qCols.some((c) => c[1] === 'saved_at')) db.run('ALTER TABLE research_queries ADD COLUMN saved_at TEXT');
     if (!qCols.some((c) => c[1] === 'parent_query_id')) db.run('ALTER TABLE research_queries ADD COLUMN parent_query_id INTEGER REFERENCES research_queries(id)');
+  } catch {
+    // ignore
+  }
+  try {
+    const rInfo = db.exec("PRAGMA table_info(research_results)");
+    const rCols = (rInfo[0]?.values ?? []) as unknown[][];
+    if (!rCols.some((c) => c[1] === 'confidence')) db.run('ALTER TABLE research_results ADD COLUMN confidence REAL');
+    if (!rCols.some((c) => c[1] === 'duration_ms')) db.run('ALTER TABLE research_results ADD COLUMN duration_ms INTEGER');
+    if (!rCols.some((c) => c[1] === 'reasoning_snapshot')) db.run('ALTER TABLE research_results ADD COLUMN reasoning_snapshot TEXT');
   } catch {
     // ignore
   }
@@ -488,8 +503,15 @@ export function insertResearchResult(
   const d = database ?? getDb();
   const id = runAndGetLastId(
     d,
-    'INSERT INTO research_results (research_query_id, content, summary) VALUES (?, ?, ?)',
-    [data.research_query_id, data.content ?? null, data.summary ?? null]
+    'INSERT INTO research_results (research_query_id, content, summary, confidence, duration_ms, reasoning_snapshot) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      data.research_query_id,
+      data.content ?? null,
+      data.summary ?? null,
+      data.confidence ?? null,
+      data.duration_ms ?? null,
+      data.reasoning_snapshot ?? null,
+    ]
   );
   return getResearchResult(id, d)!;
 }
@@ -608,6 +630,53 @@ export function listUserFeedbackByQueryId(
     'SELECT * FROM user_feedback WHERE research_query_id = ? ORDER BY created_at DESC',
     [researchQueryId]
   );
+}
+
+// ---------- metrics (aggregates for dashboard) ----------
+
+export interface ResearchMetrics {
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  avgConfidence: number | null;
+  avgDurationMs: number | null;
+  totalFeedbackCount: number;
+  avgRating: number | null;
+  ratingDistribution: { rating: number; count: number }[];
+  recentResultIds: number[];
+}
+
+export function getResearchMetrics(database?: SqlJsDatabase): ResearchMetrics {
+  const d = database ?? getDb();
+  const totalRuns = (getRow<{ n: number }>(d, 'SELECT COUNT(*) as n FROM research_results', [])?.n as number) ?? 0;
+  const completedQueries = getRow<{ n: number }>(d, "SELECT COUNT(DISTINCT research_query_id) as n FROM research_results", [])?.n as number ?? 0;
+  const failedRuns = (getRow<{ n: number }>(d, "SELECT COUNT(*) as n FROM research_queries WHERE status = 'failed'", [])?.n as number) ?? 0;
+  const avgConfRow = getRow<{ avg: number | null }>(d, 'SELECT AVG(confidence) as avg FROM research_results WHERE confidence IS NOT NULL', []);
+  const avgConfidence = avgConfRow?.avg != null ? Number(avgConfRow.avg) : null;
+  const avgDurRow = getRow<{ avg: number | null }>(d, 'SELECT AVG(duration_ms) as avg FROM research_results WHERE duration_ms IS NOT NULL', []);
+  const avgDurationMs = avgDurRow?.avg != null ? Math.round(Number(avgDurRow.avg)) : null;
+  const totalFeedbackCount = (getRow<{ n: number }>(d, 'SELECT COUNT(*) as n FROM user_feedback WHERE rating IS NOT NULL', [])?.n as number) ?? 0;
+  const avgRatingRow = getRow<{ avg: number | null }>(d, 'SELECT AVG(rating) as avg FROM user_feedback WHERE rating IS NOT NULL', []);
+  const avgRating = avgRatingRow?.avg != null ? Math.round(Number(avgRatingRow.avg) * 10) / 10 : null;
+  const distRows = getRows<{ rating: number; count: number }>(
+    d,
+    'SELECT rating as rating, COUNT(*) as count FROM user_feedback WHERE rating IS NOT NULL GROUP BY rating ORDER BY rating',
+    []
+  );
+  const ratingDistribution = distRows.map((r) => ({ rating: Number(r.rating), count: Number(r.count) }));
+  const recentRows = getRows<{ id: number }>(d, 'SELECT id FROM research_results ORDER BY created_at DESC LIMIT 20', []);
+  const recentResultIds = recentRows.map((r) => r.id);
+  return {
+    totalRuns,
+    completedRuns: completedQueries,
+    failedRuns,
+    avgConfidence,
+    avgDurationMs,
+    totalFeedbackCount,
+    avgRating,
+    ratingDistribution,
+    recentResultIds,
+  };
 }
 
 // CLI: tsx server/db.ts init

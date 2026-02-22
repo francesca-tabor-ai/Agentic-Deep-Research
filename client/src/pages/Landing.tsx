@@ -32,6 +32,12 @@ export default function Landing() {
               Vault
             </Link>
             <Link
+              href="/metrics"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Metrics
+            </Link>
+            <Link
               href="/research"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >

@@ -19,7 +19,14 @@ export interface RunResearchDeps {
   getQuery: (id: number) => ReturnType<typeof getResearchQuery>;
   updateStatus: (id: number, status: 'in_progress' | 'completed' | 'failed') => ReturnType<typeof updateResearchQueryStatus>;
   getVaultDocuments: () => VaultDocument[];
-  insertResult: (data: { research_query_id: number; content: string | null; summary: string | null }) => ReturnType<typeof insertResearchResult>;
+  insertResult: (data: {
+    research_query_id: number;
+    content: string | null;
+    summary: string | null;
+    confidence?: number | null;
+    duration_ms?: number | null;
+    reasoning_snapshot?: string | null;
+  }) => ReturnType<typeof insertResearchResult>;
   insertCitationRecord: (data: { research_result_id: number; source_url: string | null; title: string | null; snippet: string | null; source_id?: string | null }) => ReturnType<typeof insertCitation>;
 }
 
@@ -60,6 +67,8 @@ export function runResearch(
 
   deps.updateStatus(queryId, 'in_progress');
 
+  const startMs = Date.now();
+
   try {
     const vaultDocs =
       options?.vaultDocIds?.length &&
@@ -80,10 +89,26 @@ export function runResearch(
     };
     const contentJson = JSON.stringify(reportContent);
 
+    const durationMs = Date.now() - startMs;
+    const vaultCount = new Set(chunks.filter((c) => c.sourceType === 'vault').map((c) => c.sourceId)).size;
+    const publicCount = new Set(chunks.filter((c) => c.sourceType === 'public').map((c) => c.sourceId)).size;
+    const reasoningSnapshot = JSON.stringify({
+      steps: ['retrieval', 'synthesis', 'cite'],
+      chunk_count: chunks.length,
+      section_count: synthesis.sections.length,
+      source_count: citationRecords.length,
+      vault_sources: vaultCount,
+      public_sources: publicCount,
+      source_ids: [...new Set(allSourceIds)].slice(0, 50),
+    });
+
     const result = deps.insertResult({
       research_query_id: queryId,
       content: contentJson,
       summary: synthesis.summary.slice(0, 500),
+      confidence: synthesis.confidence,
+      duration_ms: durationMs,
+      reasoning_snapshot: reasoningSnapshot,
     });
 
     for (const c of citationRecords) {
