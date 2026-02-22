@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+dotenv.config({ path: '.env.local' });
 import initSqlJs, { SqlJsStatic } from 'sql.js';
 import path from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
