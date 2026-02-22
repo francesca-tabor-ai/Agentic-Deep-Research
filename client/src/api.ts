@@ -29,7 +29,7 @@ export interface FetchQueriesOpts {
 export async function fetchQueries(limitOrOpts: number | FetchQueriesOpts = 50): Promise<ResearchQuery[]> {
   const opts = typeof limitOrOpts === 'number' ? { limit: limitOrOpts } : limitOrOpts;
   const limit = opts.limit ?? 50;
-  const url = new URL(`${BASE}/queries`);
+  const url = new URL(`${BASE}/queries`, window.location.origin);
   url.searchParams.set('limit', String(limit));
   if (opts.status) url.searchParams.set('status', opts.status);
   if (opts.saved === true) url.searchParams.set('saved', 'true');
@@ -77,7 +77,7 @@ export async function fetchRelatedQueries(queryId: number): Promise<ResearchQuer
 }
 
 export async function fetchVaultDocuments(limit?: number): Promise<VaultDocument[]> {
-  const url = new URL(`${BASE}/vault/documents`);
+  const url = new URL(`${BASE}/vault/documents`, window.location.origin);
   if (limit != null) url.searchParams.set('limit', String(limit));
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(await res.text());
@@ -85,7 +85,7 @@ export async function fetchVaultDocuments(limit?: number): Promise<VaultDocument
 }
 
 export async function searchVaultDocuments(query: string, limit = 50): Promise<VaultDocument[]> {
-  const url = new URL(`${BASE}/vault/documents`);
+  const url = new URL(`${BASE}/vault/documents`, window.location.origin);
   url.searchParams.set('q', query);
   url.searchParams.set('limit', String(limit));
   const res = await fetch(url.toString());
