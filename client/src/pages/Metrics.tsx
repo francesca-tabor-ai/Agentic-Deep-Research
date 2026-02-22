@@ -53,6 +53,15 @@ export default function Metrics() {
                 <ArrowLeft className="w-5 h-5" />
               </a>
             </Link>
+            <div>
+              <h1 className="font-sans text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
+                <BarChart3 className="w-6 h-6 text-primary" aria-hidden />
+                Evaluation metrics
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
+                Research runs and user feedback over time.
+              </p>
+            </div>
           </div>
         </header>
         <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">

@@ -224,12 +224,12 @@ export async function fetchMetrics(): Promise<ResearchMetrics> {
   if (!res.ok) throw new Error(text || 'Failed to load metrics');
   const contentType = res.headers.get('content-type');
   if (contentType && !contentType.includes('application/json')) {
-    throw new Error('Metrics API returned non-JSON. Is the backend server running? (e.g. npm run api or npm run dev:all)');
+    throw new Error('Metrics are unavailable. The backend server may not be configured for this deployment.');
   }
   try {
     return JSON.parse(text) as ResearchMetrics;
   } catch {
-    throw new Error('Metrics API returned invalid JSON. Is the backend server running? (e.g. npm run api or npm run dev:all)');
+    throw new Error('Metrics are unavailable. The backend server may not be configured for this deployment.');
   }
 }
 

@@ -5,7 +5,7 @@ import Landing from './Landing';
 describe('Landing', () => {
   it('renders hero heading and CTA', () => {
     render(<Landing />);
-    expect(screen.getByText(/from question to synthesis/i)).toBeInTheDocument();
+    expect(screen.getByText(/research that moves fast/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /go to research/i })).toHaveAttribute('href', '/research');
   });
 

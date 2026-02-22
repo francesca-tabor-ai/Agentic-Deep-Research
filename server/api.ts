@@ -41,10 +41,13 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+const MAX_LIMIT = 500;
+
 // ---------- Research queries ----------
 app.get('/api/queries', async (req, res) => {
   try {
-    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const rawLimit = req.query.limit ? Number(req.query.limit) : 50;
+    const limit = Math.min(Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 50, MAX_LIMIT);
     const status = req.query.status as string | undefined;
     const saved = req.query.saved === 'true';
     const parent_query_id = req.query.parent_query_id != null ? Number(req.query.parent_query_id) : undefined;
@@ -59,6 +62,10 @@ app.get('/api/queries', async (req, res) => {
 
 const MAX_QUERY_TEXT_LENGTH = 10_000;
 const MAX_TITLE_LENGTH = 2_000;
+const MAX_CONTENT_LENGTH = 2_000_000;
+const MAX_FEEDBACK_TEXT_LENGTH = 5_000;
+const MAX_NOTE_LENGTH = 5_000;
+const MAX_SOURCE_URL_LENGTH = 2_000;
 
 app.post('/api/queries', async (req, res) => {
   try {
@@ -241,11 +248,16 @@ app.post('/api/feedback', async (req, res) => {
       res.status(400).json({ error: 'rating must be an integer 1–5' });
       return;
     }
+    const feedbackTextVal = typeof feedback_text === 'string' ? feedback_text.trim() || null : null;
+    if (feedbackTextVal != null && feedbackTextVal.length > MAX_FEEDBACK_TEXT_LENGTH) {
+      res.status(400).json({ error: `feedback_text must be at most ${MAX_FEEDBACK_TEXT_LENGTH} characters` });
+      return;
+    }
     const feedback = await insertUserFeedback({
       research_result_id: research_result_id != null && Number.isInteger(Number(research_result_id)) ? Number(research_result_id) : null,
       research_query_id: research_query_id != null && Number.isInteger(Number(research_query_id)) ? Number(research_query_id) : null,
       rating: ratingNum,
-      feedback_text: typeof feedback_text === 'string' ? feedback_text.trim() || null : null,
+      feedback_text: feedbackTextVal,
     });
     res.status(201).json(feedback);
   } catch (err) {
@@ -269,7 +281,8 @@ app.get('/api/metrics', async (_req, res) => {
 app.get('/api/vault/documents', async (req, res) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-    const limit = req.query.limit != null ? Number(req.query.limit) : undefined;
+    const rawLimit = req.query.limit != null ? Number(req.query.limit) : undefined;
+    const limit = rawLimit != null ? Math.min(Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 50, MAX_LIMIT) : undefined;
     if (q) {
       const docs = await searchVaultDocuments(q, limit ?? 50);
       res.json(docs);
@@ -299,10 +312,20 @@ app.post('/api/vault/documents', async (req, res) => {
       res.status(400).json({ error: `title must be at most ${MAX_TITLE_LENGTH} characters` });
       return;
     }
+    const contentVal = typeof content === 'string' ? content : null;
+    if (contentVal != null && contentVal.length > MAX_CONTENT_LENGTH) {
+      res.status(400).json({ error: `content must be at most ${MAX_CONTENT_LENGTH} characters` });
+      return;
+    }
+    const sourceUrlVal = typeof source_url === 'string' ? source_url.trim() || null : null;
+    if (sourceUrlVal != null && sourceUrlVal.length > MAX_SOURCE_URL_LENGTH) {
+      res.status(400).json({ error: `source_url must be at most ${MAX_SOURCE_URL_LENGTH} characters` });
+      return;
+    }
     const doc = await insertVaultDocument({
       title: titleTrimmed,
-      content: typeof content === 'string' ? content : null,
-      source_url: typeof source_url === 'string' ? source_url : null,
+      content: contentVal,
+      source_url: sourceUrlVal,
     });
     res.status(201).json(doc);
   } catch (err) {
@@ -354,11 +377,16 @@ app.post('/api/vault/documents/:id/annotations', async (req, res) => {
       return;
     }
     const { note } = req.body ?? {};
-    if (typeof note !== 'string' || !note.trim()) {
+    const noteTrimmed = typeof note === 'string' ? note.trim() : '';
+    if (!noteTrimmed) {
       res.status(400).json({ error: 'note (non-empty string) is required' });
       return;
     }
-    const annotation = await insertDocumentAnnotation(id, note.trim());
+    if (noteTrimmed.length > MAX_NOTE_LENGTH) {
+      res.status(400).json({ error: `note must be at most ${MAX_NOTE_LENGTH} characters` });
+      return;
+    }
+    const annotation = await insertDocumentAnnotation(id, noteTrimmed);
     res.status(201).json(annotation);
   } catch (err) {
     console.error(err);

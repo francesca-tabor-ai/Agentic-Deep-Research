@@ -300,7 +300,8 @@ function getRows<T>(database: SqlJsDatabase, sql: string, params: unknown[] = []
  * When DATABASE_URL or DATABASE_PUBLIC_URL is set (e.g. Railway PostgreSQL), uses PostgreSQL; otherwise SQLite.
  */
 export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJsDatabase | void> {
-  const dbUrl = getDatabaseUrl();
+  // When explicitly requesting in-memory (e.g. tests), always use SQLite to avoid external DB dependency
+  const dbUrl = dbPathArg === ':memory:' ? undefined : getDatabaseUrl();
   if (dbUrl) {
     const poolConfig: { connectionString: string; ssl?: { rejectUnauthorized: boolean } } = {
       connectionString: dbUrl,
