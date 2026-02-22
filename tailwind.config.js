@@ -41,11 +41,16 @@ export default {
           '0%': { opacity: '0', transform: 'scale(0.96)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        'scroll-left': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.4s ease-out forwards',
         'scale-in': 'scale-in 0.25s ease-out forwards',
+        'scroll-left': 'scroll-left 25s linear infinite',
       },
       transitionDuration: {
         '200': '200ms',

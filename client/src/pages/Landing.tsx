@@ -44,6 +44,18 @@ export default function Landing() {
               Metrics
             </Link>
             <Link
+              href="/pricing"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/case-studies"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale"
+            >
+              Case Studies
+            </Link>
+            <Link
               href="/research"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft tap-scale"
             >
@@ -55,18 +67,17 @@ export default function Landing() {
       </header>
 
       <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-32" role="main">
-        <section className="text-center max-w-3xl mx-auto mb-28">
+        <section className="text-center max-w-3xl mx-auto mb-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-signature text-white text-sm font-medium mb-8 shadow-soft">
             <Sparkles className="w-4 h-4 opacity-90" aria-hidden />
             Trusted, citation-grounded research
           </div>
           <h1 className="font-sans text-display sm:text-5xl font-bold text-foreground tracking-tight mb-6">
-            From question to synthesis in one place
+            Research that moves fast—without cutting corners
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground text-balance mb-12 leading-relaxed font-normal">
-            Ask complex research questions in plain language. The system plans, retrieves sources,
-            synthesizes findings, and returns structured answers with full citations and
-            traceability.
+            Built for analysts, researchers, and product teams who need deep insights in hours, not
+            weeks—with every claim traceable to a source and your data staying yours.
           </p>
           <Link
             href="/research"
@@ -75,6 +86,42 @@ export default function Landing() {
             Go to Research
             <ArrowRight className="w-5 h-5" aria-hidden />
           </Link>
+        </section>
+
+        {/* Customer · Pain · Solution */}
+        <section className="mb-32 rounded-3xl border border-border bg-card p-10 sm:p-16 shadow-soft">
+          <div className="grid md:grid-cols-3 gap-10 sm:gap-14">
+            <div>
+              <h3 className="font-sans text-lg font-semibold text-foreground mb-3 tracking-tight">
+                Who it's for
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Analysts, researchers, and product teams who need to ship insights quickly while
+                maintaining rigor. You want to ask complex questions, synthesize literature, and
+                keep sensitive context in your own vault—not in the cloud.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-sans text-lg font-semibold text-foreground mb-3 tracking-tight">
+                The problem
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Traditional research is slow and opaque: weeks of manual searching, copy-pasting into
+                spreadsheets, and black-box AI tools that give answers you can't verify. Speed or
+                trust—you've had to choose.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-sans text-lg font-semibold text-foreground mb-3 tracking-tight">
+                How we solve it
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Ask in plain language. Get structured, citation-backed answers in one place.
+                Confidence scores, source attribution, and full traceability for every claim. Your
+                vault, your data—run locally or in the cloud on your terms.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Capabilities overview */}
@@ -157,8 +204,16 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-border mt-32 py-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center text-sm text-muted-foreground leading-relaxed">
-          Agentic Deep Research — citation-grounded research with vault and metrics
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-sm text-muted-foreground">Agentic Deep Research — citation-grounded research with vault and metrics</span>
+          <div className="flex items-center gap-6">
+            <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors tap-scale">
+              Pricing
+            </Link>
+            <Link href="/case-studies" className="text-sm text-muted-foreground hover:text-foreground transition-colors tap-scale">
+              Case Studies
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

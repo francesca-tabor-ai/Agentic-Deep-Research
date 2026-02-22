@@ -6,6 +6,8 @@ const Landing = lazy(() => import('@/pages/Landing'));
 const Research = lazy(() => import('@/pages/Research'));
 const Vault = lazy(() => import('@/pages/Vault'));
 const Metrics = lazy(() => import('@/pages/Metrics'));
+const Pricing = lazy(() => import('@/pages/Pricing'));
+const CaseStudies = lazy(() => import('@/pages/CaseStudies'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const PlatformChat = lazy(() => import('@/components/PlatformChat'));
 
@@ -28,6 +30,8 @@ function App() {
           <Route path="/research" component={Research} />
           <Route path="/vault" component={Vault} />
           <Route path="/metrics" component={Metrics} />
+          <Route path="/pricing" component={Pricing} />
+          <Route path="/case-studies" component={CaseStudies} />
           <Route component={NotFound} />
         </Switch>
         <PlatformChat />
