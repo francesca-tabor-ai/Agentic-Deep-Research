@@ -27,6 +27,17 @@ See **[docs/USER-GUIDE.md](./docs/USER-GUIDE.md)** for using Research, Vault, an
 | `docs/` | [User guide](./docs/USER-GUIDE.md), [Changelog](./docs/CHANGELOG.md), [Roadmap](./docs/ROADMAP.md) (future phases). |
 | `Manus/` | Full reference app (MySQL, Drizzle, tRPC, auth). See [MANUS.md](./MANUS.md). |
 
+## Railway (PostgreSQL)
+
+When `DATABASE_URL` is set (e.g. Railway Postgres), the app uses PostgreSQL instead of SQLite. **Tables are created automatically on server startup** (SSL is enabled for hosted Postgres).
+
+If your Railway database has no tables yet (e.g. new project or first deploy):
+
+- **Redeploy** the service so the API runs `initDb()` on startup and creates all tables, or  
+- Run a one-off: `railway run npm run db:init` (or set `DATABASE_URL` and run `npm run db:init` locally).
+
+To disable SSL for the DB connection (e.g. local Postgres), set `DATABASE_SSL=false`.
+
 ## Scripts
 
 | Command | Description |
@@ -36,4 +47,5 @@ See **[docs/USER-GUIDE.md](./docs/USER-GUIDE.md)** for using Research, Vault, an
 | `npm run dev:all` | API + UI concurrently. |
 | `npm run build` | Production build (client). |
 | `npm test` | Vitest (unit + integration). |
-| `npm run db:init` | Initialize SQLite database. |
+| `npm run db:init` | Initialize database (SQLite file or PostgreSQL when `DATABASE_URL` is set). |
+| `npm run db:seed` | Seed tables with sample queries, vault docs, results, citations, feedback, and annotations. |

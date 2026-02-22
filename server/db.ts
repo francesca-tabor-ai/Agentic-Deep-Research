@@ -288,7 +288,14 @@ function getRows<T>(database: SqlJsDatabase, sql: string, params: unknown[] = []
  */
 export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJsDatabase | void> {
   if (process.env.DATABASE_URL) {
-    pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const poolConfig: { connectionString: string; ssl?: { rejectUnauthorized: boolean } } = {
+      connectionString: process.env.DATABASE_URL,
+    };
+    // Railway and most hosted Postgres require SSL
+    if (process.env.DATABASE_SSL !== 'false') {
+      poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    pgPool = new Pool(poolConfig);
     await pgPool.query(PG_SCHEMA);
     console.log('Database initialized (PostgreSQL)');
     return;

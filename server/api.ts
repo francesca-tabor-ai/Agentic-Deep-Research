@@ -88,14 +88,14 @@ app.post('/api/queries', async (req, res) => {
   }
 });
 
-app.get('/api/queries/:id', (req, res) => {
+app.get('/api/queries/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const query = getResearchQuery(id);
+    const query = await getResearchQuery(id);
     if (!query) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -104,27 +104,25 @@ app.get('/api/queries/:id', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to get query' : (err instanceof Error ? err.message : 'Failed to get query') });
-    return;
   }
 });
 
-app.get('/api/queries/:id/related', (req, res) => {
+app.get('/api/queries/:id/related', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const queries = listResearchQueries({ parent_query_id: id, limit: 50 });
+    const queries = await listResearchQueries({ parent_query_id: id, limit: 50 });
     res.json(queries);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list related queries' : (err instanceof Error ? err.message : 'Failed to list related queries') });
-    return;
   }
 });
 
-app.patch('/api/queries/:id/saved', (req, res) => {
+app.patch('/api/queries/:id/saved', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -136,16 +134,15 @@ app.patch('/api/queries/:id/saved', (req, res) => {
       res.status(400).json({ error: 'saved (boolean) is required' });
       return;
     }
-    updateResearchQuerySaved(id, saved);
+    await updateResearchQuerySaved(id, saved);
     res.json({ id, saved });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to update saved state' : (err instanceof Error ? err.message : 'Failed to update saved state') });
-    return;
   }
 });
 
-app.post('/api/queries/:id/run', (req, res) => {
+app.post('/api/queries/:id/run', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -157,87 +154,82 @@ app.post('/api/queries/:id/run', (req, res) => {
       Array.isArray(vaultDocIds) && vaultDocIds.length > 0
         ? { vaultDocIds: vaultDocIds.filter((x: unknown) => Number.isInteger(Number(x))).map(Number) }
         : undefined;
-    const outcome = runResearch(id, undefined, options);
+    const outcome = await runResearch(id, undefined, options);
     res.json(outcome);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Research run failed' : (err instanceof Error ? err.message : 'Research run failed') });
-    return;
   }
 });
 
-app.get('/api/queries/:id/results', (req, res) => {
+app.get('/api/queries/:id/results', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const results = listResearchResultsByQueryId(id);
+    const results = await listResearchResultsByQueryId(id);
     res.json(results);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list results' : (err instanceof Error ? err.message : 'Failed to list results') });
-    return;
   }
 });
 
-app.get('/api/results/:id', (req, res) => {
+app.get('/api/results/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const result = getResearchResult(id);
+    const result = await getResearchResult(id);
     if (!result) {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    const citations = listCitationsByResultId(id);
-    const feedback = listUserFeedbackByResultId(id);
+    const citations = await listCitationsByResultId(id);
+    const feedback = await listUserFeedbackByResultId(id);
     res.json({ result, citations, feedback });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to get result' : (err instanceof Error ? err.message : 'Failed to get result') });
-    return;
   }
 });
 
 // ---------- Feedback ----------
-app.get('/api/results/:id/feedback', (req, res) => {
+app.get('/api/results/:id/feedback', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const feedback = listUserFeedbackByResultId(id);
+    const feedback = await listUserFeedbackByResultId(id);
     res.json(feedback);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list feedback' : (err instanceof Error ? err.message : 'Failed to list feedback') });
-    return;
   }
 });
 
-app.get('/api/queries/:id/feedback', (req, res) => {
+app.get('/api/queries/:id/feedback', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const feedback = listUserFeedbackByQueryId(id);
+    const feedback = await listUserFeedbackByQueryId(id);
     res.json(feedback);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list feedback' : (err instanceof Error ? err.message : 'Failed to list feedback') });
-    return;
   }
 });
 
-app.post('/api/feedback', (req, res) => {
+app.post('/api/feedback', async (req, res) => {
   try {
     const { research_result_id, research_query_id, rating, feedback_text } = req.body ?? {};
     if (research_result_id == null && research_query_id == null) {
@@ -249,7 +241,7 @@ app.post('/api/feedback', (req, res) => {
       res.status(400).json({ error: 'rating must be an integer 1–5' });
       return;
     }
-    const feedback = insertUserFeedback({
+    const feedback = await insertUserFeedback({
       research_result_id: research_result_id != null && Number.isInteger(Number(research_result_id)) ? Number(research_result_id) : null,
       research_query_id: research_query_id != null && Number.isInteger(Number(research_query_id)) ? Number(research_query_id) : null,
       rating: ratingNum,
@@ -259,7 +251,6 @@ app.post('/api/feedback', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to submit feedback' : (err instanceof Error ? err.message : 'Failed to submit feedback') });
-    return;
   }
 });
 
@@ -275,25 +266,24 @@ app.get('/api/metrics', async (_req, res) => {
 });
 
 // ---------- Vault documents ----------
-app.get('/api/vault/documents', (req, res) => {
+app.get('/api/vault/documents', async (req, res) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const limit = req.query.limit != null ? Number(req.query.limit) : undefined;
     if (q) {
-      const docs = searchVaultDocuments(q, limit ?? 50);
+      const docs = await searchVaultDocuments(q, limit ?? 50);
       res.json(docs);
     } else {
-      const docs = listVaultDocuments(limit);
+      const docs = await listVaultDocuments(limit);
       res.json(docs);
     }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list documents' : (err instanceof Error ? err.message : 'Failed to list documents') });
-    return;
   }
 });
 
-app.post('/api/vault/documents', (req, res) => {
+app.post('/api/vault/documents', async (req, res) => {
   try {
     const { title, content, source_url } = req.body ?? {};
     if (!title || typeof title !== 'string') {
@@ -309,7 +299,7 @@ app.post('/api/vault/documents', (req, res) => {
       res.status(400).json({ error: `title must be at most ${MAX_TITLE_LENGTH} characters` });
       return;
     }
-    const doc = insertVaultDocument({
+    const doc = await insertVaultDocument({
       title: titleTrimmed,
       content: typeof content === 'string' ? content : null,
       source_url: typeof source_url === 'string' ? source_url : null,
@@ -318,18 +308,17 @@ app.post('/api/vault/documents', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to create document' : (err instanceof Error ? err.message : 'Failed to create document') });
-    return;
   }
 });
 
-app.delete('/api/vault/documents/:id', (req, res) => {
+app.delete('/api/vault/documents/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const ok = deleteVaultDocument(id);
+    const ok = await deleteVaultDocument(id);
     if (!ok) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -338,28 +327,26 @@ app.delete('/api/vault/documents/:id', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to delete document' : (err instanceof Error ? err.message : 'Failed to delete document') });
-    return;
   }
 });
 
 // ---------- Document annotations ----------
-app.get('/api/vault/documents/:id/annotations', (req, res) => {
+app.get('/api/vault/documents/:id/annotations', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const annotations = listDocumentAnnotations(id);
+    const annotations = await listDocumentAnnotations(id);
     res.json(annotations);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list annotations' : (err instanceof Error ? err.message : 'Failed to list annotations') });
-    return;
   }
 });
 
-app.post('/api/vault/documents/:id/annotations', (req, res) => {
+app.post('/api/vault/documents/:id/annotations', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -371,16 +358,15 @@ app.post('/api/vault/documents/:id/annotations', (req, res) => {
       res.status(400).json({ error: 'note (non-empty string) is required' });
       return;
     }
-    const annotation = insertDocumentAnnotation(id, note.trim());
+    const annotation = await insertDocumentAnnotation(id, note.trim());
     res.status(201).json(annotation);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to create annotation' : (err instanceof Error ? err.message : 'Failed to create annotation') });
-    return;
   }
 });
 
-app.delete('/api/vault/documents/:docId/annotations/:annId', (req, res) => {
+app.delete('/api/vault/documents/:docId/annotations/:annId', async (req, res) => {
   try {
     const docId = Number(req.params.docId);
     const annId = Number(req.params.annId);
@@ -388,7 +374,7 @@ app.delete('/api/vault/documents/:docId/annotations/:annId', (req, res) => {
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const ok = deleteDocumentAnnotation(annId);
+    const ok = await deleteDocumentAnnotation(annId);
     if (!ok) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -397,7 +383,6 @@ app.delete('/api/vault/documents/:docId/annotations/:annId', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to delete annotation' : (err instanceof Error ? err.message : 'Failed to delete annotation') });
-    return;
   }
 });
 

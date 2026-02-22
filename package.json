@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:init": "tsx server/db.ts init"
+    "db:init": "tsx server/db.ts init",
+    "db:seed": "tsx server/seed.ts"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
