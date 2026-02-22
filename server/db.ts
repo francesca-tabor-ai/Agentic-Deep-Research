@@ -1,8 +1,12 @@
 import initSqlJs, { SqlJsStatic } from 'sql.js';
 import path from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { Pool } from 'pg';
 
 export const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'research.db');
+
+/** When set (e.g. Railway PostgreSQL), use pg instead of SQLite. */
+let pgPool: Pool | null = null;
 
 export type ResearchQueryStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
@@ -163,6 +167,65 @@ CREATE TABLE IF NOT EXISTS document_annotations (
 CREATE INDEX IF NOT EXISTS idx_document_annotations_doc ON document_annotations(vault_document_id);
 `;
 
+const PG_SCHEMA = `
+CREATE TABLE IF NOT EXISTS research_queries (
+  id SERIAL PRIMARY KEY,
+  query_text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  saved_at TIMESTAMPTZ,
+  parent_query_id INTEGER REFERENCES research_queries(id)
+);
+CREATE TABLE IF NOT EXISTS vault_documents (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT,
+  source_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS research_results (
+  id SERIAL PRIMARY KEY,
+  research_query_id INTEGER NOT NULL REFERENCES research_queries(id) ON DELETE CASCADE,
+  content TEXT,
+  summary TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confidence REAL,
+  duration_ms INTEGER,
+  reasoning_snapshot TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_research_results_query ON research_results(research_query_id);
+CREATE TABLE IF NOT EXISTS citations (
+  id SERIAL PRIMARY KEY,
+  research_result_id INTEGER NOT NULL REFERENCES research_results(id) ON DELETE CASCADE,
+  source_url TEXT,
+  title TEXT,
+  snippet TEXT,
+  source_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_citations_result ON citations(research_result_id);
+CREATE TABLE IF NOT EXISTS user_feedback (
+  id SERIAL PRIMARY KEY,
+  research_result_id INTEGER REFERENCES research_results(id) ON DELETE SET NULL,
+  research_query_id INTEGER REFERENCES research_queries(id) ON DELETE SET NULL,
+  rating INTEGER CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
+  feedback_text TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (research_result_id IS NOT NULL OR research_query_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_user_feedback_result ON user_feedback(research_result_id);
+CREATE INDEX IF NOT EXISTS idx_user_feedback_query ON user_feedback(research_query_id);
+CREATE TABLE IF NOT EXISTS document_annotations (
+  id SERIAL PRIMARY KEY,
+  vault_document_id INTEGER NOT NULL REFERENCES vault_documents(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_document_annotations_doc ON document_annotations(vault_document_id);
+`;
+
 async function getSqlJs(): Promise<SqlJsStatic> {
   if (!sqlJs) {
     sqlJs = await initSqlJs();
@@ -221,8 +284,15 @@ function getRows<T>(database: SqlJsDatabase, sql: string, params: unknown[] = []
 
 /**
  * Initialize the database and create schema. Idempotent. Call once at startup.
+ * When DATABASE_URL is set (e.g. Railway PostgreSQL), uses PostgreSQL; otherwise SQLite.
  */
-export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJsDatabase> {
+export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJsDatabase | void> {
+  if (process.env.DATABASE_URL) {
+    pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await pgPool.query(PG_SCHEMA);
+    console.log('Database initialized (PostgreSQL)');
+    return;
+  }
   const SQL = await getSqlJs();
   if (dbPathArg === ':memory:') {
     db = new SQL.Database();
@@ -267,156 +337,223 @@ export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJs
 }
 
 /**
- * Get the current database instance. Call initDb() first (e.g. at app startup).
+ * Get the current database instance (SQLite) or pg Pool (PostgreSQL). Call initDb() first.
  */
-export function getDb(): SqlJsDatabase {
-  if (!db) {
-    throw new Error('Database not initialized. Call initDb() first.');
-  }
+export function getDb(): SqlJsDatabase | Pool {
+  if (pgPool) return pgPool;
+  if (!db) throw new Error('Database not initialized. Call initDb() first.');
   return db;
 }
 
 /**
- * Close the database and, if using a file path, persist to disk.
+ * Close the database. Async when using PostgreSQL.
  */
-export function closeDb(): void {
+export async function closeDb(): Promise<void> {
+  if (pgPool) {
+    await pgPool.end();
+    pgPool = null;
+    return;
+  }
   if (db && dbPath && dbPath !== ':memory:') {
     const data = db.export();
     const buffer = Buffer.from(data);
     writeFileSync(dbPath, buffer);
   }
-  if (db) {
-    db.close();
-  }
+  if (db) db.close();
   db = null;
   dbPath = null;
 }
 
+// ---------- PostgreSQL helpers (used when DATABASE_URL is set) ----------
+function toIso(row: Record<string, unknown>, keys: string[]): void {
+  for (const k of keys) {
+    if (row[k] instanceof Date) row[k] = (row[k] as Date).toISOString();
+  }
+}
+
+async function getRowPg<T>(sql: string, params: unknown[]): Promise<T | null> {
+  if (!pgPool) throw new Error('PG not initialized');
+  const r = await pgPool.query(sql, params);
+  const row = r.rows[0] as Record<string, unknown> | undefined;
+  if (!row) return null;
+  toIso(row, ['created_at', 'updated_at', 'saved_at']);
+  return row as T;
+}
+
+async function getRowsPg<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+  if (!pgPool) throw new Error('PG not initialized');
+  const r = await pgPool.query(sql, params);
+  for (const row of r.rows as Record<string, unknown>[]) {
+    toIso(row, ['created_at', 'updated_at', 'saved_at']);
+  }
+  return r.rows as T[];
+}
+
+async function runAndGetLastIdPg(sql: string, params: unknown[]): Promise<number> {
+  if (!pgPool) throw new Error('PG not initialized');
+  const r = await pgPool.query(sql, params);
+  const id = r.rows[0]?.id;
+  return typeof id === 'number' ? id : Number(id) || 0;
+}
+
+async function runAndGetChangesPg(sql: string, params: unknown[]): Promise<number> {
+  if (!pgPool) throw new Error('PG not initialized');
+  const r = await pgPool.query(sql, params);
+  return r.rowCount ?? 0;
+}
+
 // ---------- research_queries ----------
 
-export function insertResearchQuery(
+export async function insertResearchQuery(
   data: ResearchQueryInsert,
   database?: SqlJsDatabase
-): ResearchQuery {
-  const d = database ?? getDb();
+): Promise<ResearchQuery> {
+  if (pgPool && database === undefined) {
+    const status = data.status ?? 'pending';
+    const r = await pgPool.query(
+      'INSERT INTO research_queries (query_text, status, parent_query_id) VALUES ($1, $2, $3) RETURNING *',
+      [data.query_text, status, data.parent_query_id ?? null]
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at', 'updated_at', 'saved_at']);
+    return row as ResearchQuery;
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   const status = data.status ?? 'pending';
   const id = runAndGetLastId(
     d,
     'INSERT INTO research_queries (query_text, status, parent_query_id) VALUES (?, ?, ?)',
     [data.query_text, status, data.parent_query_id ?? null]
   );
-  return getResearchQuery(id, d)!;
+  return getRow<ResearchQuery>(d, 'SELECT * FROM research_queries WHERE id = ?', [id])!;
 }
 
-export function getResearchQuery(
+export async function getResearchQuery(
   id: number,
   database?: SqlJsDatabase
-): ResearchQuery | null {
-  const d = database ?? getDb();
+): Promise<ResearchQuery | null> {
+  if (pgPool && database === undefined) return getRowPg<ResearchQuery>('SELECT * FROM research_queries WHERE id = $1', [id]);
+  const d = database ?? getDb() as SqlJsDatabase;
   return getRow<ResearchQuery>(d, 'SELECT * FROM research_queries WHERE id = ?', [id]);
 }
 
-export function listResearchQueries(
+export async function listResearchQueries(
   opts?: { status?: ResearchQueryStatus; limit?: number; saved?: boolean; parent_query_id?: number },
   database?: SqlJsDatabase
-): ResearchQuery[] {
-  const d = database ?? getDb();
+): Promise<ResearchQuery[]> {
+  if (pgPool && database === undefined) {
+    let sql = 'SELECT * FROM research_queries';
+    const params: (string | number | null)[] = [];
+    const conditions: string[] = [];
+    if (opts?.status) { conditions.push('status = $' + (params.length + 1)); params.push(opts.status); }
+    if (opts?.saved === true) conditions.push('saved_at IS NOT NULL');
+    if (opts?.parent_query_id != null) { conditions.push('parent_query_id = $' + (params.length + 1)); params.push(opts.parent_query_id); }
+    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    sql += ' ORDER BY created_at DESC';
+    if (opts?.limit) { sql += ' LIMIT $' + (params.length + 1); params.push(opts.limit); }
+    return getRowsPg<ResearchQuery>(sql, params);
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   let sql = 'SELECT * FROM research_queries';
   const params: (string | number | null)[] = [];
   const conditions: string[] = [];
-  if (opts?.status) {
-    conditions.push('status = ?');
-    params.push(opts.status);
-  }
-  if (opts?.saved === true) {
-    conditions.push('saved_at IS NOT NULL');
-  }
-  if (opts?.parent_query_id != null) {
-    conditions.push('parent_query_id = ?');
-    params.push(opts.parent_query_id);
-  }
+  if (opts?.status) { conditions.push('status = ?'); params.push(opts.status); }
+  if (opts?.saved === true) conditions.push('saved_at IS NOT NULL');
+  if (opts?.parent_query_id != null) { conditions.push('parent_query_id = ?'); params.push(opts.parent_query_id); }
   if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
   sql += ' ORDER BY created_at DESC';
-  if (opts?.limit) {
-    sql += ' LIMIT ?';
-    params.push(opts.limit);
-  }
+  if (opts?.limit) { sql += ' LIMIT ?'; params.push(opts.limit); }
   return getRows<ResearchQuery>(d, sql, params);
 }
 
-export function updateResearchQueryStatus(
+export async function updateResearchQueryStatus(
   id: number,
   status: ResearchQueryStatus,
   database?: SqlJsDatabase
-): ResearchQuery | null {
-  const d = database ?? getDb();
+): Promise<ResearchQuery | null> {
+  if (pgPool && database === undefined) {
+    await pgPool.query("UPDATE research_queries SET status = $1, updated_at = NOW() WHERE id = $2", [status, id]);
+    return getRowPg<ResearchQuery>('SELECT * FROM research_queries WHERE id = $1', [id]);
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   d.run(
     "UPDATE research_queries SET status = ?, updated_at = datetime('now') WHERE id = ?",
     [status, id]
   );
-  return getResearchQuery(id, d);
+  return getRow<ResearchQuery>(d, 'SELECT * FROM research_queries WHERE id = ?', [id]);
 }
 
-export function updateResearchQuerySaved(
+export async function updateResearchQuerySaved(
   id: number,
   saved: boolean,
   database?: SqlJsDatabase
-): ResearchQuery | null {
-  const d = database ?? getDb();
+): Promise<ResearchQuery | null> {
+  if (pgPool && database === undefined) {
+    await pgPool.query("UPDATE research_queries SET saved_at = $1, updated_at = NOW() WHERE id = $2", [saved ? new Date().toISOString() : null, id]);
+    return getRowPg<ResearchQuery>('SELECT * FROM research_queries WHERE id = $1', [id]);
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   d.run(
     "UPDATE research_queries SET saved_at = ?, updated_at = datetime('now') WHERE id = ?",
     [saved ? new Date().toISOString() : null, id]
   );
-  return getResearchQuery(id, d);
+  return getRow<ResearchQuery>(d, 'SELECT * FROM research_queries WHERE id = ?', [id]);
 }
 
 // ---------- vault_documents ----------
 
-export function insertVaultDocument(
+export async function insertVaultDocument(
   data: VaultDocumentInsert,
   database?: SqlJsDatabase
-): VaultDocument {
-  const d = database ?? getDb();
-  const id = runAndGetLastId(
-    d,
-    'INSERT INTO vault_documents (title, content, source_url) VALUES (?, ?, ?)',
-    [data.title, data.content ?? null, data.source_url ?? null]
-  );
-  return getVaultDocument(id, d)!;
+): Promise<VaultDocument> {
+  if (pgPool && database === undefined) {
+    const r = await pgPool.query(
+      'INSERT INTO vault_documents (title, content, source_url) VALUES ($1, $2, $3) RETURNING *',
+      [data.title, data.content ?? null, data.source_url ?? null]
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at', 'updated_at']);
+    return row as VaultDocument;
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
+  const id = runAndGetLastId(d, 'INSERT INTO vault_documents (title, content, source_url) VALUES (?, ?, ?)', [data.title, data.content ?? null, data.source_url ?? null]);
+  return getRow<VaultDocument>(d, 'SELECT * FROM vault_documents WHERE id = ?', [id])!;
 }
 
-export function getVaultDocument(
+export async function getVaultDocument(
   id: number,
   database?: SqlJsDatabase
-): VaultDocument | null {
-  const d = database ?? getDb();
+): Promise<VaultDocument | null> {
+  if (pgPool && database === undefined) return getRowPg<VaultDocument>('SELECT * FROM vault_documents WHERE id = $1', [id]);
+  const d = database ?? getDb() as SqlJsDatabase;
   return getRow<VaultDocument>(d, 'SELECT * FROM vault_documents WHERE id = ?', [id]);
 }
 
-export function listVaultDocuments(
+export async function listVaultDocuments(
   limit?: number,
   database?: SqlJsDatabase
-): VaultDocument[] {
-  const d = database ?? getDb();
-  const sql = limit
-    ? 'SELECT * FROM vault_documents ORDER BY created_at DESC LIMIT ?'
-    : 'SELECT * FROM vault_documents ORDER BY created_at DESC';
+): Promise<VaultDocument[]> {
+  if (pgPool && database === undefined) {
+    const sql = limit ? 'SELECT * FROM vault_documents ORDER BY created_at DESC LIMIT $1' : 'SELECT * FROM vault_documents ORDER BY created_at DESC';
+    return limit ? getRowsPg<VaultDocument>(sql, [limit]) : getRowsPg<VaultDocument>(sql);
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
+  const sql = limit ? 'SELECT * FROM vault_documents ORDER BY created_at DESC LIMIT ?' : 'SELECT * FROM vault_documents ORDER BY created_at DESC';
   return limit ? getRows<VaultDocument>(d, sql, [limit]) : getRows<VaultDocument>(d, sql);
 }
 
 /** Simple search: tokenize query, filter docs by term match in title/content, return by relevance. */
-export function searchVaultDocuments(
+export async function searchVaultDocuments(
   query: string,
   limit: number = 50,
   database?: SqlJsDatabase
-): VaultDocument[] {
-  const d = database ?? getDb();
-  const all = getRows<VaultDocument>(d, 'SELECT * FROM vault_documents ORDER BY created_at DESC', []);
-  const terms = query
-    .toLowerCase()
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w.length > 1);
+): Promise<VaultDocument[]> {
+  const all = pgPool && database === undefined
+    ? await getRowsPg<VaultDocument>('SELECT * FROM vault_documents ORDER BY created_at DESC')
+    : getRows<VaultDocument>(database ?? getDb() as SqlJsDatabase, 'SELECT * FROM vault_documents ORDER BY created_at DESC', []);
+  const terms = query.toLowerCase().trim().split(/\s+/).filter((w) => w.length > 1);
   if (!terms.length) return all.slice(0, limit);
   const scored = all.map((doc) => {
     const text = [doc.title, doc.content ?? ''].join(' ').toLowerCase();
@@ -427,12 +564,16 @@ export function searchVaultDocuments(
   return scored.filter((s) => s.score > 0).slice(0, limit).map((s) => s.doc);
 }
 
-export function getVaultDocumentsByIds(
+export async function getVaultDocumentsByIds(
   ids: number[],
   database?: SqlJsDatabase
-): VaultDocument[] {
+): Promise<VaultDocument[]> {
   if (!ids.length) return [];
-  const d = database ?? getDb();
+  if (pgPool && database === undefined) {
+    const placeholders = ids.map((_, i) => '$' + (i + 1)).join(',');
+    return getRowsPg<VaultDocument>(`SELECT * FROM vault_documents WHERE id IN (${placeholders})`, ids);
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   const placeholders = ids.map(() => '?').join(',');
   return getRows<VaultDocument>(d, `SELECT * FROM vault_documents WHERE id IN (${placeholders})`, ids);
 }
@@ -446,190 +587,179 @@ export interface DocumentAnnotation {
   created_at: string;
 }
 
-export function listDocumentAnnotations(
+export async function listDocumentAnnotations(
   vaultDocumentId: number,
   database?: SqlJsDatabase
-): DocumentAnnotation[] {
-  const d = database ?? getDb();
-  return getRows<DocumentAnnotation>(
-    d,
-    'SELECT * FROM document_annotations WHERE vault_document_id = ? ORDER BY created_at',
-    [vaultDocumentId]
-  );
+): Promise<DocumentAnnotation[]> {
+  if (pgPool && database === undefined) return getRowsPg<DocumentAnnotation>('SELECT * FROM document_annotations WHERE vault_document_id = $1 ORDER BY created_at', [vaultDocumentId]);
+  const d = database ?? getDb() as SqlJsDatabase;
+  return getRows<DocumentAnnotation>(d, 'SELECT * FROM document_annotations WHERE vault_document_id = ? ORDER BY created_at', [vaultDocumentId]);
 }
 
-export function insertDocumentAnnotation(
+export async function insertDocumentAnnotation(
   vaultDocumentId: number,
   note: string,
   database?: SqlJsDatabase
-): DocumentAnnotation {
-  const d = database ?? getDb();
-  const id = runAndGetLastId(
-    d,
-    'INSERT INTO document_annotations (vault_document_id, note) VALUES (?, ?)',
-    [vaultDocumentId, note]
-  );
+): Promise<DocumentAnnotation> {
+  if (pgPool && database === undefined) {
+    const r = await pgPool.query('INSERT INTO document_annotations (vault_document_id, note) VALUES ($1, $2) RETURNING *', [vaultDocumentId, note]);
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at']);
+    return row as DocumentAnnotation;
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
+  const id = runAndGetLastId(d, 'INSERT INTO document_annotations (vault_document_id, note) VALUES (?, ?)', [vaultDocumentId, note]);
   const row = getRow<DocumentAnnotation>(d, 'SELECT * FROM document_annotations WHERE id = ?', [id]);
   if (!row) throw new Error('Insert failed');
   return row;
 }
 
-export function deleteDocumentAnnotation(
+export async function deleteDocumentAnnotation(
   id: number,
   database?: SqlJsDatabase
-): boolean {
-  const d = database ?? getDb();
-  const n = runAndGetChanges(d, 'DELETE FROM document_annotations WHERE id = ?', [id]);
-  return n > 0;
+): Promise<boolean> {
+  if (pgPool && database === undefined) { const n = await runAndGetChangesPg('DELETE FROM document_annotations WHERE id = $1', [id]); return n > 0; }
+  const d = database ?? getDb() as SqlJsDatabase;
+  return runAndGetChanges(d, 'DELETE FROM document_annotations WHERE id = ?', [id]) > 0;
 }
 
 // ---------- research_results ----------
 
-export function deleteVaultDocument(
+export async function deleteVaultDocument(
   id: number,
   database?: SqlJsDatabase
-): boolean {
-  const d = database ?? getDb();
-  const n = runAndGetChanges(d, 'DELETE FROM vault_documents WHERE id = ?', [id]);
-  return n > 0;
+): Promise<boolean> {
+  if (pgPool && database === undefined) { const n = await runAndGetChangesPg('DELETE FROM vault_documents WHERE id = $1', [id]); return n > 0; }
+  const d = database ?? getDb() as SqlJsDatabase;
+  return runAndGetChanges(d, 'DELETE FROM vault_documents WHERE id = ?', [id]) > 0;
 }
 
 // ---------- research_results ----------
 
-export function insertResearchResult(
+export async function insertResearchResult(
   data: ResearchResultInsert,
   database?: SqlJsDatabase
-): ResearchResult {
-  const d = database ?? getDb();
-  const id = runAndGetLastId(
-    d,
-    'INSERT INTO research_results (research_query_id, content, summary, confidence, duration_ms, reasoning_snapshot) VALUES (?, ?, ?, ?, ?, ?)',
-    [
-      data.research_query_id,
-      data.content ?? null,
-      data.summary ?? null,
-      data.confidence ?? null,
-      data.duration_ms ?? null,
-      data.reasoning_snapshot ?? null,
-    ]
-  );
-  return getResearchResult(id, d)!;
+): Promise<ResearchResult> {
+  if (pgPool && database === undefined) {
+    const r = await pgPool.query(
+      'INSERT INTO research_results (research_query_id, content, summary, confidence, duration_ms, reasoning_snapshot) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [data.research_query_id, data.content ?? null, data.summary ?? null, data.confidence ?? null, data.duration_ms ?? null, data.reasoning_snapshot ?? null]
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at']);
+    return row as ResearchResult;
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
+  const id = runAndGetLastId(d, 'INSERT INTO research_results (research_query_id, content, summary, confidence, duration_ms, reasoning_snapshot) VALUES (?, ?, ?, ?, ?, ?)', [data.research_query_id, data.content ?? null, data.summary ?? null, data.confidence ?? null, data.duration_ms ?? null, data.reasoning_snapshot ?? null]);
+  return getRow<ResearchResult>(d, 'SELECT * FROM research_results WHERE id = ?', [id])!;
 }
 
-export function getResearchResult(
+export async function getResearchResult(
   id: number,
   database?: SqlJsDatabase
-): ResearchResult | null {
-  const d = database ?? getDb();
+): Promise<ResearchResult | null> {
+  if (pgPool && database === undefined) return getRowPg<ResearchResult>('SELECT * FROM research_results WHERE id = $1', [id]);
+  const d = database ?? getDb() as SqlJsDatabase;
   return getRow<ResearchResult>(d, 'SELECT * FROM research_results WHERE id = ?', [id]);
 }
 
-export function listResearchResultsByQueryId(
+export async function listResearchResultsByQueryId(
   researchQueryId: number,
   database?: SqlJsDatabase
-): ResearchResult[] {
-  const d = database ?? getDb();
-  return getRows<ResearchResult>(
-    d,
-    'SELECT * FROM research_results WHERE research_query_id = ? ORDER BY created_at DESC',
-    [researchQueryId]
-  );
+): Promise<ResearchResult[]> {
+  if (pgPool && database === undefined) return getRowsPg<ResearchResult>('SELECT * FROM research_results WHERE research_query_id = $1 ORDER BY created_at DESC', [researchQueryId]);
+  const d = database ?? getDb() as SqlJsDatabase;
+  return getRows<ResearchResult>(d, 'SELECT * FROM research_results WHERE research_query_id = ? ORDER BY created_at DESC', [researchQueryId]);
 }
 
 // ---------- citations ----------
 
-export function insertCitation(
+export async function insertCitation(
   data: CitationInsert,
   database?: SqlJsDatabase
-): Citation {
-  const d = database ?? getDb();
-  const id = runAndGetLastId(
-    d,
-    'INSERT INTO citations (research_result_id, source_url, title, snippet, source_id) VALUES (?, ?, ?, ?, ?)',
-    [
-      data.research_result_id,
-      data.source_url ?? null,
-      data.title ?? null,
-      data.snippet ?? null,
-      data.source_id ?? null,
-    ]
-  );
-  return getCitation(id, d)!;
+): Promise<Citation> {
+  if (pgPool && database === undefined) {
+    const r = await pgPool.query(
+      'INSERT INTO citations (research_result_id, source_url, title, snippet, source_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [data.research_result_id, data.source_url ?? null, data.title ?? null, data.snippet ?? null, data.source_id ?? null]
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at']);
+    return row as Citation;
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
+  const id = runAndGetLastId(d, 'INSERT INTO citations (research_result_id, source_url, title, snippet, source_id) VALUES (?, ?, ?, ?, ?)', [data.research_result_id, data.source_url ?? null, data.title ?? null, data.snippet ?? null, data.source_id ?? null]);
+  return getRow<Citation>(d, 'SELECT * FROM citations WHERE id = ?', [id])!;
 }
 
-export function getCitation(
+export async function getCitation(
   id: number,
   database?: SqlJsDatabase
-): Citation | null {
-  const d = database ?? getDb();
+): Promise<Citation | null> {
+  if (pgPool && database === undefined) return getRowPg<Citation>('SELECT * FROM citations WHERE id = $1', [id]);
+  const d = database ?? getDb() as SqlJsDatabase;
   return getRow<Citation>(d, 'SELECT * FROM citations WHERE id = ?', [id]);
 }
 
-export function listCitationsByResultId(
+export async function listCitationsByResultId(
   researchResultId: number,
   database?: SqlJsDatabase
-): Citation[] {
-  const d = database ?? getDb();
-  return getRows<Citation>(
-    d,
-    'SELECT * FROM citations WHERE research_result_id = ? ORDER BY created_at',
-    [researchResultId]
-  );
+): Promise<Citation[]> {
+  if (pgPool && database === undefined) return getRowsPg<Citation>('SELECT * FROM citations WHERE research_result_id = $1 ORDER BY created_at', [researchResultId]);
+  const d = database ?? getDb() as SqlJsDatabase;
+  return getRows<Citation>(d, 'SELECT * FROM citations WHERE research_result_id = ? ORDER BY created_at', [researchResultId]);
 }
 
 // ---------- user_feedback ----------
 
-export function insertUserFeedback(
+export async function insertUserFeedback(
   data: UserFeedbackInsert,
   database?: SqlJsDatabase
-): UserFeedback {
-  const d = database ?? getDb();
-  if (data.research_result_id == null && data.research_query_id == null) {
-    throw new Error('Either research_result_id or research_query_id must be set');
+): Promise<UserFeedback> {
+  if (data.research_result_id == null && data.research_query_id == null) throw new Error('Either research_result_id or research_query_id must be set');
+  if (pgPool && database === undefined) {
+    const r = await pgPool.query(
+      'INSERT INTO user_feedback (research_result_id, research_query_id, rating, feedback_text) VALUES ($1, $2, $3, $4) RETURNING *',
+      [data.research_result_id ?? null, data.research_query_id ?? null, data.rating ?? null, data.feedback_text ?? null]
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    if (!row) throw new Error('Insert failed');
+    toIso(row, ['created_at']);
+    return row as UserFeedback;
   }
-  const id = runAndGetLastId(
-    d,
-    'INSERT INTO user_feedback (research_result_id, research_query_id, rating, feedback_text) VALUES (?, ?, ?, ?)',
-    [
-      data.research_result_id ?? null,
-      data.research_query_id ?? null,
-      data.rating ?? null,
-      data.feedback_text ?? null,
-    ]
-  );
-  return getUserFeedback(id, d)!;
+  const d = database ?? getDb() as SqlJsDatabase;
+  const id = runAndGetLastId(d, 'INSERT INTO user_feedback (research_result_id, research_query_id, rating, feedback_text) VALUES (?, ?, ?, ?)', [data.research_result_id ?? null, data.research_query_id ?? null, data.rating ?? null, data.feedback_text ?? null]);
+  return getRow<UserFeedback>(d, 'SELECT * FROM user_feedback WHERE id = ?', [id])!;
 }
 
-export function getUserFeedback(
+export async function getUserFeedback(
   id: number,
   database?: SqlJsDatabase
-): UserFeedback | null {
-  const d = database ?? getDb();
+): Promise<UserFeedback | null> {
+  if (pgPool && database === undefined) return getRowPg<UserFeedback>('SELECT * FROM user_feedback WHERE id = $1', [id]);
+  const d = database ?? getDb() as SqlJsDatabase;
   return getRow<UserFeedback>(d, 'SELECT * FROM user_feedback WHERE id = ?', [id]);
 }
 
-export function listUserFeedbackByResultId(
+export async function listUserFeedbackByResultId(
   researchResultId: number,
   database?: SqlJsDatabase
-): UserFeedback[] {
-  const d = database ?? getDb();
-  return getRows<UserFeedback>(
-    d,
-    'SELECT * FROM user_feedback WHERE research_result_id = ? ORDER BY created_at DESC',
-    [researchResultId]
-  );
+): Promise<UserFeedback[]> {
+  if (pgPool && database === undefined) return getRowsPg<UserFeedback>('SELECT * FROM user_feedback WHERE research_result_id = $1 ORDER BY created_at DESC', [researchResultId]);
+  const d = database ?? getDb() as SqlJsDatabase;
+  return getRows<UserFeedback>(d, 'SELECT * FROM user_feedback WHERE research_result_id = ? ORDER BY created_at DESC', [researchResultId]);
 }
 
-export function listUserFeedbackByQueryId(
+export async function listUserFeedbackByQueryId(
   researchQueryId: number,
   database?: SqlJsDatabase
-): UserFeedback[] {
-  const d = database ?? getDb();
-  return getRows<UserFeedback>(
-    d,
-    'SELECT * FROM user_feedback WHERE research_query_id = ? ORDER BY created_at DESC',
-    [researchQueryId]
-  );
+): Promise<UserFeedback[]> {
+  if (pgPool && database === undefined) return getRowsPg<UserFeedback>('SELECT * FROM user_feedback WHERE research_query_id = $1 ORDER BY created_at DESC', [researchQueryId]);
+  const d = database ?? getDb() as SqlJsDatabase;
+  return getRows<UserFeedback>(d, 'SELECT * FROM user_feedback WHERE research_query_id = ? ORDER BY created_at DESC', [researchQueryId]);
 }
 
 // ---------- metrics (aggregates for dashboard) ----------
@@ -646,8 +776,24 @@ export interface ResearchMetrics {
   recentResultIds: number[];
 }
 
-export function getResearchMetrics(database?: SqlJsDatabase): ResearchMetrics {
-  const d = database ?? getDb();
+export async function getResearchMetrics(database?: SqlJsDatabase): Promise<ResearchMetrics> {
+  if (pgPool && database === undefined) {
+    const totalRuns = Number((await getRowPg<{ n: unknown }>('SELECT COUNT(*) as n FROM research_results', []))?.n ?? 0);
+    const completedQueries = Number((await getRowPg<{ n: unknown }>('SELECT COUNT(DISTINCT research_query_id) as n FROM research_results', []))?.n ?? 0);
+    const failedRuns = Number((await getRowPg<{ n: unknown }>("SELECT COUNT(*) as n FROM research_queries WHERE status = 'failed'", []))?.n ?? 0);
+    const avgConfRow = await getRowPg<{ avg: number | null }>('SELECT AVG(confidence) as avg FROM research_results WHERE confidence IS NOT NULL', []);
+    const avgConfidence = avgConfRow?.avg != null ? Number(avgConfRow.avg) : null;
+    const avgDurRow = await getRowPg<{ avg: number | null }>('SELECT AVG(duration_ms) as avg FROM research_results WHERE duration_ms IS NOT NULL', []);
+    const avgDurationMs = avgDurRow?.avg != null ? Math.round(Number(avgDurRow.avg)) : null;
+    const totalFeedbackCount = Number((await getRowPg<{ n: unknown }>('SELECT COUNT(*) as n FROM user_feedback WHERE rating IS NOT NULL', []))?.n ?? 0);
+    const avgRatingRow = await getRowPg<{ avg: number | null }>('SELECT AVG(rating) as avg FROM user_feedback WHERE rating IS NOT NULL', []);
+    const avgRating = avgRatingRow?.avg != null ? Math.round(Number(avgRatingRow.avg) * 10) / 10 : null;
+    const distRows = await getRowsPg<{ rating: number; count: unknown }>('SELECT rating, COUNT(*) as count FROM user_feedback WHERE rating IS NOT NULL GROUP BY rating ORDER BY rating', []);
+    const ratingDistribution = distRows.map((r) => ({ rating: Number(r.rating), count: Number(r.count ?? 0) }));
+    const recentRows = await getRowsPg<{ id: number }>('SELECT id FROM research_results ORDER BY created_at DESC LIMIT 20', []);
+    return { totalRuns, completedRuns: completedQueries, failedRuns, avgConfidence, avgDurationMs, totalFeedbackCount, avgRating, ratingDistribution, recentResultIds: recentRows.map((r) => r.id) };
+  }
+  const d = database ?? getDb() as SqlJsDatabase;
   const totalRuns = (getRow<{ n: number }>(d, 'SELECT COUNT(*) as n FROM research_results', [])?.n as number) ?? 0;
   const completedQueries = getRow<{ n: number }>(d, "SELECT COUNT(DISTINCT research_query_id) as n FROM research_results", [])?.n as number ?? 0;
   const failedRuns = (getRow<{ n: number }>(d, "SELECT COUNT(*) as n FROM research_queries WHERE status = 'failed'", [])?.n as number) ?? 0;
@@ -658,32 +804,17 @@ export function getResearchMetrics(database?: SqlJsDatabase): ResearchMetrics {
   const totalFeedbackCount = (getRow<{ n: number }>(d, 'SELECT COUNT(*) as n FROM user_feedback WHERE rating IS NOT NULL', [])?.n as number) ?? 0;
   const avgRatingRow = getRow<{ avg: number | null }>(d, 'SELECT AVG(rating) as avg FROM user_feedback WHERE rating IS NOT NULL', []);
   const avgRating = avgRatingRow?.avg != null ? Math.round(Number(avgRatingRow.avg) * 10) / 10 : null;
-  const distRows = getRows<{ rating: number; count: number }>(
-    d,
-    'SELECT rating as rating, COUNT(*) as count FROM user_feedback WHERE rating IS NOT NULL GROUP BY rating ORDER BY rating',
-    []
-  );
+  const distRows = getRows<{ rating: number; count: number }>(d, 'SELECT rating as rating, COUNT(*) as count FROM user_feedback WHERE rating IS NOT NULL GROUP BY rating ORDER BY rating', []);
   const ratingDistribution = distRows.map((r) => ({ rating: Number(r.rating), count: Number(r.count) }));
   const recentRows = getRows<{ id: number }>(d, 'SELECT id FROM research_results ORDER BY created_at DESC LIMIT 20', []);
-  const recentResultIds = recentRows.map((r) => r.id);
-  return {
-    totalRuns,
-    completedRuns: completedQueries,
-    failedRuns,
-    avgConfidence,
-    avgDurationMs,
-    totalFeedbackCount,
-    avgRating,
-    ratingDistribution,
-    recentResultIds,
-  };
+  return { totalRuns, completedRuns: completedQueries, failedRuns, avgConfidence, avgDurationMs, totalFeedbackCount, avgRating, ratingDistribution, recentResultIds: recentRows.map((r) => r.id) };
 }
 
 // CLI: tsx server/db.ts init
 if (typeof process !== 'undefined' && process.argv?.[2] === 'init') {
   initDb()
     .then(() => {
-      console.log('Database initialized at', DEFAULT_DB_PATH);
+      console.log(process.env.DATABASE_URL ? 'Database initialized (PostgreSQL)' : 'Database initialized at ' + DEFAULT_DB_PATH);
     })
     .catch((err) => {
       console.error(err);

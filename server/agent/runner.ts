@@ -16,9 +16,9 @@ import { synthesize, extractCitations } from './synthesis.js';
 import type { ResearchReportContent, SynthesisOutput } from './types.js';
 
 export interface RunResearchDeps {
-  getQuery: (id: number) => ReturnType<typeof getResearchQuery>;
-  updateStatus: (id: number, status: 'in_progress' | 'completed' | 'failed') => ReturnType<typeof updateResearchQueryStatus>;
-  getVaultDocuments: () => VaultDocument[];
+  getQuery: (id: number) => Promise<ReturnType<typeof getResearchQuery> extends Promise<infer T> ? T : never>;
+  updateStatus: (id: number, status: 'in_progress' | 'completed' | 'failed') => Promise<ReturnType<typeof updateResearchQueryStatus> extends Promise<infer T> ? T : never>;
+  getVaultDocuments: () => Promise<VaultDocument[]>;
   insertResult: (data: {
     research_query_id: number;
     content: string | null;
@@ -26,8 +26,8 @@ export interface RunResearchDeps {
     confidence?: number | null;
     duration_ms?: number | null;
     reasoning_snapshot?: string | null;
-  }) => ReturnType<typeof insertResearchResult>;
-  insertCitationRecord: (data: { research_result_id: number; source_url: string | null; title: string | null; snippet: string | null; source_id?: string | null }) => ReturnType<typeof insertCitation>;
+  }) => Promise<ReturnType<typeof insertResearchResult> extends Promise<infer T> ? T : never>;
+  insertCitationRecord: (data: { research_result_id: number; source_url: string | null; title: string | null; snippet: string | null; source_id?: string | null }) => Promise<ReturnType<typeof insertCitation> extends Promise<infer T> ? T : never>;
 }
 
 const defaultDeps: RunResearchDeps = {
@@ -54,18 +54,18 @@ export interface RunResearchOptions {
  * Multi-step research run: in_progress → retrieve (vault + public) → synthesize → cite → save → completed.
  * Options.vaultDocIds restricts retrieval to specific vault docs (workspace-aware).
  */
-export function runResearch(
+export async function runResearch(
   queryId: number,
   deps: RunResearchDeps = defaultDeps,
   options?: RunResearchOptions
-): RunResearchResult {
-  const query = deps.getQuery(queryId);
+): Promise<RunResearchResult> {
+  const query = await deps.getQuery(queryId);
   if (!query) {
-    deps.updateStatus(queryId, 'failed');
+    await deps.updateStatus(queryId, 'failed');
     throw new Error(`Query not found: ${queryId}`);
   }
 
-  deps.updateStatus(queryId, 'in_progress');
+  await deps.updateStatus(queryId, 'in_progress');
 
   const startMs = Date.now();
 
@@ -73,8 +73,8 @@ export function runResearch(
     const vaultDocs =
       options?.vaultDocIds?.length &&
       options.vaultDocIds.length > 0
-        ? getVaultDocumentsByIds(options.vaultDocIds)
-        : deps.getVaultDocuments();
+        ? await getVaultDocumentsByIds(options.vaultDocIds)
+        : await deps.getVaultDocuments();
     const chunks = retrieve(query.query_text, vaultDocs);
 
     const synthesis: SynthesisOutput = synthesize(query.query_text, chunks);
@@ -102,7 +102,7 @@ export function runResearch(
       source_ids: [...new Set(allSourceIds)].slice(0, 50),
     });
 
-    const result = deps.insertResult({
+    const result = await deps.insertResult({
       research_query_id: queryId,
       content: contentJson,
       summary: synthesis.summary.slice(0, 500),
@@ -112,7 +112,7 @@ export function runResearch(
     });
 
     for (const c of citationRecords) {
-      deps.insertCitationRecord({
+      await deps.insertCitationRecord({
         research_result_id: result.id,
         source_url: c.url,
         title: c.title,
@@ -121,7 +121,7 @@ export function runResearch(
       });
     }
 
-    deps.updateStatus(queryId, 'completed');
+    await deps.updateStatus(queryId, 'completed');
 
     return {
       researchResultId: result.id,
@@ -130,7 +130,7 @@ export function runResearch(
       citationCount: citationRecords.length,
     };
   } catch (err) {
-    deps.updateStatus(queryId, 'failed');
+    await deps.updateStatus(queryId, 'failed');
     throw err;
   }
 }
