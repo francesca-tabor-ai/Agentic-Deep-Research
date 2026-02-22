@@ -109,16 +109,16 @@ export default function Vault() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
+      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground">Vault</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="font-sans text-xl font-bold text-foreground tracking-tight">Vault</h1>
+            <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
               Documents you add here can be used as context for research.
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function Vault() {
           {loading ? (
             <div className="text-muted-foreground text-sm py-8">Loading…</div>
           ) : documents.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center">
+            <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-12 text-center">
               <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-60" />
               <p className="text-muted-foreground">No documents yet. Add one above.</p>
             </div>
@@ -154,9 +154,9 @@ export default function Vault() {
               {documents.map((doc) => (
                 <li
                   key={doc.id}
-                  className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-start gap-3"
+                  className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-start gap-3 shadow-soft"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">

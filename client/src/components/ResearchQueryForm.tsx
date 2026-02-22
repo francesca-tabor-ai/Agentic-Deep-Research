@@ -57,7 +57,7 @@ export default function ResearchQueryForm({
           onChange={(e) => setQueryText(e.target.value)}
           placeholder="e.g. What is the current consensus on microplastics in marine food chains? Or: recent advances in CRISPR delivery for gene therapy."
           rows={4}
-          className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-y min-h-[120px]"
+          className="w-full px-4 py-3 rounded-2xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y min-h-[120px] leading-relaxed"
           disabled={isSubmitting}
         />
         <div className="absolute bottom-3 right-3 text-muted-foreground/60 text-xs">
@@ -65,7 +65,7 @@ export default function ResearchQueryForm({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+      <div className="rounded-2xl border border-border bg-muted/30 overflow-hidden">
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
@@ -127,7 +127,7 @@ export default function ResearchQueryForm({
       <button
         type="submit"
         disabled={!queryText.trim() || isSubmitting}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-200 shadow-soft"
       >
         {isSubmitting ? (
           <>

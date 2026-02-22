@@ -46,17 +46,17 @@ export default function Metrics() {
   if (error || !metrics) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-card/50 sticky top-0 z-10">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
+        <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
             <Link href="/">
-              <a className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+              <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
                 <ArrowLeft className="w-5 h-5" />
               </a>
             </Link>
           </div>
         </header>
         <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-          <div className="rounded-xl border border-red-200 bg-red-500/10 text-red-700 dark:text-red-400 p-4">
+          <div className="rounded-2xl border border-red-200 bg-red-500/10 text-red-700 dark:text-red-400 p-4">
             {error || 'No metrics available.'}
           </div>
         </main>
@@ -66,19 +66,19 @@ export default function Metrics() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
+      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="w-6 h-6 text-primary" />
+            <h1 className="font-sans text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-primary" aria-hidden />
               Evaluation metrics
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
               Research runs and user feedback over time.
             </p>
           </div>
@@ -87,30 +87,30 @@ export default function Metrics() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <BarChart3 className="w-4 h-4" />
+              <BarChart3 className="w-4 h-4" aria-hidden />
               <span className="text-sm font-medium">Total runs</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{metrics.totalRuns}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4" aria-hidden />
               <span className="text-sm font-medium">Completed</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{metrics.completedRuns}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <AlertCircle className="w-4 h-4" />
+              <AlertCircle className="w-4 h-4" aria-hidden />
               <span className="text-sm font-medium">Failed</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{metrics.failedRuns}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4" aria-hidden />
               <span className="text-sm font-medium">Feedback count</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{metrics.totalFeedbackCount}</p>
@@ -118,9 +118,9 @@ export default function Metrics() {
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <h2 className="font-sans font-semibold text-foreground mb-3 flex items-center gap-2 tracking-tight">
+              <TrendingUp className="w-5 h-5 text-primary" aria-hidden />
               Average confidence
             </h2>
             {metrics.avgConfidence != null ? (
@@ -131,9 +131,9 @@ export default function Metrics() {
               <p className="text-muted-foreground">No data yet</p>
             )}
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <h2 className="font-sans font-semibold text-foreground mb-3 flex items-center gap-2 tracking-tight">
+              <Clock className="w-5 h-5 text-primary" aria-hidden />
               Average run time
             </h2>
             {metrics.avgDurationMs != null ? (
@@ -146,10 +146,10 @@ export default function Metrics() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-            <Star className="w-5 h-5 text-amber-500" />
-            <h2 className="font-semibold text-foreground">User rating distribution</h2>
+        <section className="rounded-2xl border border-border bg-card overflow-hidden shadow-soft">
+          <div className="px-5 py-4 border-b border-border bg-muted/30 flex items-center gap-2">
+            <Star className="w-5 h-5 text-amber-500" aria-hidden />
+            <h2 className="font-sans font-semibold text-foreground tracking-tight">User rating distribution</h2>
           </div>
           <div className="p-4 space-y-4">
             {metrics.avgRating != null && (

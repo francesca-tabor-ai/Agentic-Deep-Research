@@ -4,32 +4,75 @@
 
 @layer base {
   :root {
-    --background: 30 20% 98%;
-    --foreground: 24 10% 12%;
-    --muted: 30 15% 92%;
-    --muted-foreground: 24 8% 40%;
-    --accent: 24 8% 90%;
-    --accent-foreground: 24 10% 12%;
-    --border: 24 12% 88%;
+    /* Minimal + expressive: white dominant, near-black text, cool greys */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+    --accent: 220 12% 94%;
+    --accent-foreground: 220 15% 9%;
+    --border: 220 13% 91%;
     --card: 0 0% 100%;
-    --card-foreground: 24 10% 12%;
-    --primary: 172 66% 32%;
+    --card-foreground: 220 15% 9%;
+    /* Primary: violet from signature gradient — used for CTAs, links, key UI */
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
+    /* Signature gradient (purples, blues, pinks, oranges) — use sparingly */
+    --gradient-signature: 262 83% 58%, 237 92% 61%, 330 81% 60%, 24 100% 50%;
   }
   .dark {
-    --background: 24 12% 8%;
-    --foreground: 30 15% 92%;
-    --muted: 24 10% 14%;
-    --muted-foreground: 30 10% 60%;
-    --accent: 24 10% 18%;
-    --accent-foreground: 30 15% 92%;
-    --border: 24 10% 18%;
-    --card: 24 10% 11%;
-    --card-foreground: 30 15% 92%;
-    --primary: 172 55% 45%;
-    --primary-foreground: 24 12% 8%;
+    --background: 220 15% 7%;
+    --foreground: 220 14% 96%;
+    --muted: 220 12% 14%;
+    --muted-foreground: 220 10% 58%;
+    --accent: 220 12% 18%;
+    --accent-foreground: 220 14% 96%;
+    --border: 220 12% 18%;
+    --card: 220 12% 10%;
+    --card-foreground: 220 14% 96%;
+    --primary: 263 70% 65%;
+    --primary-foreground: 220 15% 9%;
   }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+    line-height: 1.6;
+  }
+
+  /* Strong typographic hierarchy: headlines bold and confident */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground;
+    line-height: 1.25;
+  }
+
+  /* Body and UI: generous line height for readability */
+  p {
+    @apply leading-relaxed;
+  }
+}
+
+/* Signature gradient utility — use for hero badges, primary CTAs, highlights */
+@layer utilities {
+  .bg-gradient-signature {
+    background: linear-gradient(
+      135deg,
+      hsl(262 83% 58%),
+      hsl(237 92% 61%),
+      hsl(330 81% 60%),
+      hsl(24 100% 50%)
+    );
+  }
+  .text-gradient-signature {
+    background: linear-gradient(
+      135deg,
+      hsl(262 83% 58%),
+      hsl(237 92% 61%),
+      hsl(330 81% 60%),
+      hsl(24 100% 50%)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }

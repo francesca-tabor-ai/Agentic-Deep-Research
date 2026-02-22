@@ -155,13 +155,13 @@ export default function Research() {
       <main className="flex-1 min-w-0 flex flex-col">
         <header className="p-4 sm:p-6 border-b border-border flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground">Research</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="font-sans text-xl font-bold text-foreground tracking-tight">Research</h1>
+            <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
               Enter your question or topic and run a deep research task.
             </p>
           </div>
@@ -183,7 +183,7 @@ export default function Research() {
                   type="button"
                   onClick={handleRunResearch}
                   disabled={runLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 transition-opacity duration-200 shadow-soft"
                 >
                   {runLoading ? (
                     <>
@@ -203,7 +203,7 @@ export default function Research() {
               </div>
 
               {resultError && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 text-sm" role="alert">
+                <div className="flex items-center gap-2 p-4 rounded-2xl bg-red-500/10 text-red-700 dark:text-red-400 text-sm" role="alert">
                   <AlertCircle className="w-4 h-4 shrink-0" aria-hidden />
                   {resultError}
                 </div>
@@ -226,7 +226,7 @@ export default function Research() {
               )}
 
               {!resultLoading && !resultData && selectedId != null && (
-                <div className="py-8 rounded-xl border border-dashed border-border bg-muted/20 text-center text-muted-foreground">
+                <div className="py-10 rounded-2xl border border-dashed border-border bg-muted/20 text-center text-muted-foreground leading-relaxed">
                   <p>No result yet. Click &quot;Run research&quot; to generate a report.</p>
                 </div>
               )}
@@ -234,7 +234,7 @@ export default function Research() {
           )}
 
           {selectedId == null && (
-            <div className="py-8 rounded-xl border border-dashed border-border bg-muted/20 text-center text-muted-foreground">
+            <div className="py-10 rounded-2xl border border-dashed border-border bg-muted/20 text-center text-muted-foreground leading-relaxed">
               <p>Select a query from the sidebar or create one above.</p>
             </div>
           )}

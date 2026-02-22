@@ -68,14 +68,14 @@ export default function QueryHistorySidebar({
   };
 
   return (
-    <aside className="w-full sm:w-72 shrink-0 border-r border-border bg-card/50 flex flex-col min-h-0">
+    <aside className="w-full sm:w-72 shrink-0 border-r border-border bg-card/80 flex flex-col min-h-0">
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" />
-          <h2 className="font-semibold text-foreground">Query history</h2>
+          <History className="w-5 h-5 text-primary" aria-hidden />
+          <h2 className="font-sans font-semibold text-foreground tracking-tight">Query history</h2>
         </div>
         {onSavedFilterChange && (
-          <div className="flex rounded-lg border border-border p-0.5 bg-muted/30">
+          <div className="flex rounded-xl border border-border p-0.5 bg-muted/30">
             <button
               type="button"
               onClick={() => onSavedFilterChange(false)}
