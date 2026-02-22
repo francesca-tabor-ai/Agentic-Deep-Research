@@ -42,7 +42,10 @@ export interface RunResearchResult {
  */
 export function runResearch(queryId: number, deps: RunResearchDeps = defaultDeps): RunResearchResult {
   const query = deps.getQuery(queryId);
-  if (!query) throw new Error(`Query not found: ${queryId}`);
+  if (!query) {
+    deps.updateStatus(queryId, 'failed');
+    throw new Error(`Query not found: ${queryId}`);
+  }
 
   deps.updateStatus(queryId, 'in_progress');
 

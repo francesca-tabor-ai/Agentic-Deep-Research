@@ -68,3 +68,50 @@ export async function deleteVaultDocument(id: number): Promise<void> {
   const res = await fetch(`${BASE}/vault/documents/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(await res.text());
 }
+
+// ---------- Research agent (Phase 3) ----------
+
+export interface ResearchResult {
+  id: number;
+  research_query_id: number;
+  content: string | null;
+  summary: string | null;
+  created_at: string;
+}
+
+export interface Citation {
+  id: number;
+  research_result_id: number;
+  source_url: string | null;
+  title: string | null;
+  snippet: string | null;
+  created_at: string;
+}
+
+export interface RunResearchOutcome {
+  researchResultId: number;
+  summary: string;
+  confidence: number;
+  citationCount: number;
+}
+
+export async function runQueryResearch(queryId: number): Promise<RunResearchOutcome> {
+  const res = await fetch(`${BASE}/queries/${queryId}/run`, { method: 'POST' });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchQueryResults(queryId: number): Promise<ResearchResult[]> {
+  const res = await fetch(`${BASE}/queries/${queryId}/results`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchResult(resultId: number): Promise<{
+  result: ResearchResult;
+  citations: Citation[];
+}> {
+  const res = await fetch(`${BASE}/results/${resultId}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
