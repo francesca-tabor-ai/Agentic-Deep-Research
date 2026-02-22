@@ -33,38 +33,38 @@ describe('runner', () => {
     insertedResults = [];
     insertedCitations = [];
     deps = {
-      getQuery: vi.fn().mockReturnValue(mockQuery),
+      getQuery: vi.fn().mockResolvedValue(mockQuery),
       updateStatus: vi.fn().mockImplementation((_id: number, status: 'in_progress' | 'completed' | 'failed') => {
         statusUpdates.push(status);
-        return null;
+        return Promise.resolve(null);
       }),
-      getVaultDocuments: vi.fn().mockReturnValue(mockVaultDocs),
+      getVaultDocuments: vi.fn().mockResolvedValue(mockVaultDocs),
       insertResult: vi.fn().mockImplementation((data) => {
         insertedResults.push(data);
-        return {
+        return Promise.resolve({
           id: insertedResults.length,
           research_query_id: data.research_query_id,
           content: data.content,
           summary: data.summary,
           created_at: new Date().toISOString(),
-        } as ResearchResult;
+        } as ResearchResult);
       }),
       insertCitationRecord: vi.fn().mockImplementation((data) => {
         insertedCitations.push(data);
-        return {} as never;
+        return Promise.resolve({} as never);
       }),
     };
   });
 
-  it('updates status to in_progress then completed on success', () => {
-    runResearch(1, deps);
+  it('updates status to in_progress then completed on success', async () => {
+    await runResearch(1, deps);
     expect(statusUpdates).toContain('in_progress');
     expect(statusUpdates).toContain('completed');
     expect(statusUpdates).not.toContain('failed');
   });
 
-  it('returns researchResultId, summary, confidence, citationCount', () => {
-    const result = runResearch(1, deps);
+  it('returns researchResultId, summary, confidence, citationCount', async () => {
+    const result = await runResearch(1, deps);
     expect(result.researchResultId).toBe(1);
     expect(result.summary).toBeDefined();
     expect(typeof result.confidence).toBe('number');
@@ -73,8 +73,8 @@ describe('runner', () => {
     expect(result.citationCount).toBeGreaterThanOrEqual(0);
   });
 
-  it('inserts one research result with JSON content and summary', () => {
-    runResearch(1, deps);
+  it('inserts one research result with JSON content and summary', async () => {
+    await runResearch(1, deps);
     expect(insertedResults.length).toBe(1);
     expect(insertedResults[0].research_query_id).toBe(1);
     expect(insertedResults[0].summary).toBeDefined();
@@ -85,23 +85,21 @@ describe('runner', () => {
     expect(content.query).toBe(mockQuery.query_text);
   });
 
-  it('inserts citation records for used sources', () => {
-    runResearch(1, deps);
+  it('inserts citation records for used sources', async () => {
+    await runResearch(1, deps);
     expect(insertedCitations.length).toBeGreaterThan(0);
     expect(insertedCitations.every((c) => c.research_result_id === 1)).toBe(true);
   });
 
-  it('throws and sets status to failed when query not found', () => {
-    deps.getQuery = vi.fn().mockReturnValue(null);
-    expect(() => runResearch(999, deps)).toThrow('Query not found');
+  it('throws and sets status to failed when query not found', async () => {
+    deps.getQuery = vi.fn().mockResolvedValue(null);
+    await expect(runResearch(999, deps)).rejects.toThrow('Query not found');
     expect(statusUpdates).toContain('failed');
   });
 
-  it('throws and sets status to failed when insertResult throws', () => {
-    deps.insertResult = vi.fn().mockImplementation(() => {
-      throw new Error('DB error');
-    });
-    expect(() => runResearch(1, deps)).toThrow('DB error');
+  it('throws and sets status to failed when insertResult throws', async () => {
+    deps.insertResult = vi.fn().mockRejectedValue(new Error('DB error'));
+    await expect(runResearch(1, deps)).rejects.toThrow('DB error');
     expect(statusUpdates).toContain('failed');
   });
 });

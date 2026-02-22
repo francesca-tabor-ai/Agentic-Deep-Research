@@ -5,8 +5,12 @@ import { Pool } from 'pg';
 
 export const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'research.db');
 
-/** When set (e.g. Railway PostgreSQL), use pg instead of SQLite. */
+/** When set (e.g. Railway PostgreSQL), use pg instead of SQLite. Supports DATABASE_URL or DATABASE_PUBLIC_URL. */
 let pgPool: Pool | null = null;
+
+function getDatabaseUrl(): string | undefined {
+  return process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL;
+}
 
 export type ResearchQueryStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
@@ -284,12 +288,13 @@ function getRows<T>(database: SqlJsDatabase, sql: string, params: unknown[] = []
 
 /**
  * Initialize the database and create schema. Idempotent. Call once at startup.
- * When DATABASE_URL is set (e.g. Railway PostgreSQL), uses PostgreSQL; otherwise SQLite.
+ * When DATABASE_URL or DATABASE_PUBLIC_URL is set (e.g. Railway PostgreSQL), uses PostgreSQL; otherwise SQLite.
  */
 export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJsDatabase | void> {
-  if (process.env.DATABASE_URL) {
+  const dbUrl = getDatabaseUrl();
+  if (dbUrl) {
     const poolConfig: { connectionString: string; ssl?: { rejectUnauthorized: boolean } } = {
-      connectionString: process.env.DATABASE_URL,
+      connectionString: dbUrl,
     };
     // Railway and most hosted Postgres require SSL
     if (process.env.DATABASE_SSL !== 'false') {
@@ -821,7 +826,7 @@ export async function getResearchMetrics(database?: SqlJsDatabase): Promise<Rese
 if (typeof process !== 'undefined' && process.argv?.[2] === 'init') {
   initDb()
     .then(() => {
-      console.log(process.env.DATABASE_URL ? 'Database initialized (PostgreSQL)' : 'Database initialized at ' + DEFAULT_DB_PATH);
+      console.log(getDatabaseUrl() ? 'Database initialized (PostgreSQL)' : 'Database initialized at ' + DEFAULT_DB_PATH);
     })
     .catch((err) => {
       console.error(err);
