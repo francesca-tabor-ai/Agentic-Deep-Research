@@ -80,19 +80,24 @@ export default function Pricing() {
           <Link href="/" className="font-sans text-lg font-semibold tracking-tight text-foreground hover:opacity-90 transition-opacity">
             Agentic Deep Research
           </Link>
-          <nav className="flex items-center gap-8" aria-label="Main navigation">
-            <Link href="/research" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
-              Research
-            </Link>
-            <Link href="/vault" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
-              Vault
-            </Link>
-            <Link href="/pricing" className="text-sm font-medium text-foreground tap-scale">
-              Pricing
-            </Link>
-            <Link href="/case-studies" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
-              Case Studies
-            </Link>
+          <nav className="flex items-center gap-4 sm:gap-8" aria-label="Main navigation">
+            <div className="hidden md:flex items-center gap-8">
+              <Link href="/research" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
+                Research
+              </Link>
+              <Link href="/vault" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
+                Vault
+              </Link>
+              <Link href="/metrics" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
+                Metrics
+              </Link>
+              <Link href="/pricing" className="text-sm font-medium text-foreground tap-scale">
+                Pricing
+              </Link>
+              <Link href="/case-studies" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale">
+                Case Studies
+              </Link>
+            </div>
             <Link
               href="/research"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft tap-scale"
