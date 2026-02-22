@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:init": "tsx server/db.ts init",
+    "db:migrate": "tsx server/db.ts init",
     "db:seed": "tsx server/seed.ts"
   },
   "devDependencies": {
