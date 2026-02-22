@@ -7,7 +7,7 @@ describe('ResearchQueryForm', () => {
   it('renders query input and submit button', () => {
     const onSubmit = vi.fn();
     render(<ResearchQueryForm onSubmit={onSubmit} />);
-    expect(screen.getByPlaceholderText(/natural language|topic or question/i)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /research question or topic/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /run research/i })).toBeInTheDocument();
   });
 
@@ -21,7 +21,7 @@ describe('ResearchQueryForm', () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<ResearchQueryForm onSubmit={onSubmit} />);
-    const input = screen.getByPlaceholderText(/natural language|topic or question/i);
+    const input = screen.getByRole('textbox', { name: /research question or topic/i });
     await user.type(input, '  What is agentic AI?  ');
     await user.click(screen.getByRole('button', { name: /run research/i }));
     expect(onSubmit).toHaveBeenCalledTimes(1);

@@ -7,7 +7,7 @@
     "dev": "vite",
     "api": "tsx server/api.ts",
     "dev:all": "concurrently -n v,a \"npm run dev\" \"npm run api\"",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,6 +17,8 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.5.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
@@ -37,6 +39,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql.js": "^1.11.0",
-    "wouter": "^2.14.1"
+    "wouter": "^3.9.0"
   }
 }

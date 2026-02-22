@@ -43,8 +43,9 @@ describe('QueryHistorySidebar', () => {
 
   it('highlights selected query and links to query param', () => {
     render(<QueryHistorySidebar queries={mockQueries} selectedId={1} />);
-    const link = screen.getByText('What is agentic AI?').closest('a');
-    expect(link).toHaveAttribute('href', '/research?q=1');
-    expect(link?.closest('div')).toHaveClass('bg-primary/10');
+    const links = screen.getAllByRole('link');
+    const linkToQuery1 = links.find((el) => el.getAttribute('href') === '/research?q=1');
+    expect(linkToQuery1).toBeInTheDocument();
+    expect(linkToQuery1?.firstElementChild).toHaveClass('bg-primary/10');
   });
 });

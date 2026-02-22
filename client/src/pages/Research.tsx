@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
-import ResearchQueryForm from '@/components/ResearchQueryForm';
+import ResearchQueryForm, { type AdvancedOptions } from '@/components/ResearchQueryForm';
 import QueryHistorySidebar from '@/components/QueryHistorySidebar';
 import { fetchQueries, createQuery } from '@/api';
 
@@ -33,10 +33,7 @@ export default function Research() {
     return q ? parseInt(q, 10) : null;
   })();
 
-  const handleSubmit = async (
-    queryText: string,
-    _options?: Parameters<ResearchQueryForm['props']['onSubmit']>[1]
-  ) => {
+  const handleSubmit = async (queryText: string, _options?: AdvancedOptions) => {
     setSubmitting(true);
     try {
       const created = await createQuery(queryText, 'pending');

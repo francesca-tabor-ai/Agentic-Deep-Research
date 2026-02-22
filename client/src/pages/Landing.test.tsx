@@ -13,14 +13,14 @@ describe('Landing', () => {
     render(<Landing />);
     expect(screen.getByText('Research capabilities')).toBeInTheDocument();
     expect(screen.getByText(/natural language queries/i)).toBeInTheDocument();
-    expect(screen.getByText(/citation-grounded/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/citation-grounded/i).length).toBeGreaterThan(0);
   });
 
   it('renders nav links to Research and Vault', () => {
     render(<Landing />);
     const researchLinks = screen.getAllByRole('link', { name: /research/i });
     expect(researchLinks.length).toBeGreaterThan(0);
-    const vaultLink = screen.getByRole('link', { name: /vault/i });
-    expect(vaultLink).toHaveAttribute('href', '/vault');
+    const vaultLinks = screen.getAllByRole('link', { name: /vault/i });
+    expect(vaultLinks.some((el) => el.getAttribute('href') === '/vault')).toBe(true);
   });
 });

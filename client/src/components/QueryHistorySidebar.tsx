@@ -62,8 +62,8 @@ export default function QueryHistorySidebar({
               return (
                 <li key={q.id}>
                   <Link href={`/research?q=${q.id}`}>
-                    <a
-                      className={`block px-3 py-2.5 rounded-lg text-left transition-colors ${
+                    <span
+                      className={`block px-3 py-2.5 rounded-lg text-left transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-primary/10 text-primary border border-primary/20'
                           : 'hover:bg-muted/60 text-foreground'
@@ -79,7 +79,7 @@ export default function QueryHistorySidebar({
                           {new Date(q.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                    </a>
+                    </span>
                   </Link>
                 </li>
               );
