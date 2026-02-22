@@ -42,26 +42,25 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ---------- Research queries ----------
-app.get('/api/queries', (req, res) => {
+app.get('/api/queries', async (req, res) => {
   try {
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const status = req.query.status as string | undefined;
     const saved = req.query.saved === 'true';
     const parent_query_id = req.query.parent_query_id != null ? Number(req.query.parent_query_id) : undefined;
     const opts = { limit, ...(status && { status: status as 'pending' | 'in_progress' | 'completed' | 'failed' }), ...(saved && { saved: true }), ...(parent_query_id != null && Number.isInteger(parent_query_id) && { parent_query_id }) };
-    const queries = listResearchQueries(opts);
+    const queries = await listResearchQueries(opts);
     res.json(queries);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to list queries' : (err instanceof Error ? err.message : 'Failed to list queries') });
-    return;
   }
 });
 
 const MAX_QUERY_TEXT_LENGTH = 10_000;
 const MAX_TITLE_LENGTH = 2_000;
 
-app.post('/api/queries', (req, res) => {
+app.post('/api/queries', async (req, res) => {
   try {
     const { query_text, status, parent_query_id } = req.body ?? {};
     if (!query_text || typeof query_text !== 'string') {
@@ -77,7 +76,7 @@ app.post('/api/queries', (req, res) => {
       res.status(400).json({ error: `query_text must be at most ${MAX_QUERY_TEXT_LENGTH} characters` });
       return;
     }
-    const query = insertResearchQuery({
+    const query = await insertResearchQuery({
       query_text: trimmed,
       status,
       parent_query_id: parent_query_id != null && Number.isInteger(Number(parent_query_id)) ? Number(parent_query_id) : undefined,
@@ -86,7 +85,6 @@ app.post('/api/queries', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to create query' : (err instanceof Error ? err.message : 'Failed to create query') });
-    return;
   }
 });
 
@@ -266,14 +264,13 @@ app.post('/api/feedback', (req, res) => {
 });
 
 // ---------- Metrics (dashboard) ----------
-app.get('/api/metrics', (_req, res) => {
+app.get('/api/metrics', async (_req, res) => {
   try {
-    const metrics = getResearchMetrics();
+    const metrics = await getResearchMetrics();
     res.json(metrics);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: isProduction ? 'Failed to load metrics' : (err instanceof Error ? err.message : 'Failed to load metrics') });
-    return;
   }
 });
 
@@ -409,15 +406,19 @@ let server: ReturnType<typeof createServer> | null = null;
 function shutdown(signal: string) {
   return () => {
     console.log(`${signal} received, shutting down gracefully...`);
+    const done = (code: number) => {
+      closeDb().then(() => process.exit(code)).catch((err) => {
+        console.error('Error closing DB:', err);
+        process.exit(1);
+      });
+    };
     if (server) {
       server.close((err) => {
         if (err) console.error('Error closing server:', err);
-        closeDb();
-        process.exit(err ? 1 : 0);
+        done(err ? 1 : 0);
       });
     } else {
-      closeDb();
-      process.exit(0);
+      done(0);
     }
   };
 }

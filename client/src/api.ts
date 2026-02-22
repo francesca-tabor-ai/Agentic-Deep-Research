@@ -220,8 +220,17 @@ export interface ResearchMetrics {
 
 export async function fetchMetrics(): Promise<ResearchMetrics> {
   const res = await fetch(`${BASE}/metrics`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || 'Failed to load metrics');
+  const contentType = res.headers.get('content-type');
+  if (contentType && !contentType.includes('application/json')) {
+    throw new Error('Metrics API returned non-JSON. Is the backend server running? (e.g. npm run api or npm run dev:all)');
+  }
+  try {
+    return JSON.parse(text) as ResearchMetrics;
+  } catch {
+    throw new Error('Metrics API returned invalid JSON. Is the backend server running? (e.g. npm run api or npm run dev:all)');
+  }
 }
 
 // ---------- Document annotations ----------
