@@ -111,7 +111,9 @@ CREATE TABLE IF NOT EXISTS research_queries (
   query_text TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  saved_at TEXT,
+  parent_query_id INTEGER REFERENCES research_queries(id)
 );
 
 CREATE TABLE IF NOT EXISTS vault_documents (
@@ -129,6 +131,9 @@ CREATE TABLE IF NOT EXISTS research_results (
   content TEXT,
   summary TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  confidence REAL,
+  duration_ms INTEGER,
+  reasoning_snapshot TEXT,
   FOREIGN KEY (research_query_id) REFERENCES research_queries(id)
 );
 
@@ -140,6 +145,7 @@ CREATE TABLE IF NOT EXISTS citations (
   source_url TEXT,
   title TEXT,
   snippet TEXT,
+  source_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (research_result_id) REFERENCES research_results(id)
 );
@@ -302,6 +308,13 @@ export async function initDb(dbPathArg: string = DEFAULT_DB_PATH): Promise<SqlJs
     }
     pgPool = new Pool(poolConfig);
     await pgPool.query(PG_SCHEMA);
+    // Add missing columns on existing tables (migrations for older deployments)
+    await pgPool.query('ALTER TABLE research_queries ADD COLUMN IF NOT EXISTS saved_at TIMESTAMPTZ');
+    await pgPool.query('ALTER TABLE research_queries ADD COLUMN IF NOT EXISTS parent_query_id INTEGER REFERENCES research_queries(id)');
+    await pgPool.query('ALTER TABLE research_results ADD COLUMN IF NOT EXISTS confidence REAL');
+    await pgPool.query('ALTER TABLE research_results ADD COLUMN IF NOT EXISTS duration_ms INTEGER');
+    await pgPool.query('ALTER TABLE research_results ADD COLUMN IF NOT EXISTS reasoning_snapshot TEXT');
+    await pgPool.query('ALTER TABLE citations ADD COLUMN IF NOT EXISTS source_id TEXT');
     console.log('Database initialized (PostgreSQL)');
     return;
   }
