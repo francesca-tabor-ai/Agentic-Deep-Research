@@ -10,8 +10,17 @@
     "rootDir": ".",
     "declaration": true,
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": { "@/*": ["client/src/*"] }
   },
-  "include": ["server/**/*.ts", "**/*.test.ts"],
+  "include": [
+    "server/**/*.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "client/**/*.ts",
+    "client/**/*.tsx"
+  ],
   "exclude": ["node_modules", "dist"]
 }
