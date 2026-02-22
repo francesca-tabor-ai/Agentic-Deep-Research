@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Play, Loader2, AlertCircle } from 'lucide-react';
 import ResearchQueryForm, { type AdvancedOptions } from '@/components/ResearchQueryForm';
+import ResearchTemplates from '@/components/ResearchTemplates';
 import QueryHistorySidebar from '@/components/QueryHistorySidebar';
 import ResearchResultDisplay from '@/components/ResearchResultDisplay';
 import {
@@ -26,6 +27,7 @@ export default function Research() {
   const [resultData, setResultData] = useState<Awaited<ReturnType<typeof fetchResult>> | null>(null);
   const [refillKey, setRefillKey] = useState<number | null>(null);
   const [refillText, setRefillText] = useState<string | null>(null);
+  const [templateQueryText, setTemplateQueryText] = useState<string | null>(null);
   const [, setLocation] = useLocation();
 
   const selectedId = (() => {
@@ -99,6 +101,7 @@ export default function Research() {
     setSubmitting(true);
     try {
       const created = await createQuery({ query_text: queryText, status: 'pending' });
+      setTemplateQueryText(null);
       await loadQueries();
       setLocation(`/research?q=${created.id}`);
     } catch (err) {
@@ -167,12 +170,13 @@ export default function Research() {
           </div>
         </header>
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          <div className="max-w-2xl mb-8">
+          <div className="max-w-2xl mb-8 space-y-6">
+            <ResearchTemplates onSelect={(text) => setTemplateQueryText(text)} />
             <ResearchQueryForm
               key={refillKey ?? 'default'}
               onSubmit={handleSubmit}
               isSubmitting={submitting}
-              initialQueryText={refillText ?? undefined}
+              initialQueryText={refillText ?? templateQueryText ?? undefined}
             />
           </div>
 
