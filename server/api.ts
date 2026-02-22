@@ -6,10 +6,14 @@ import {
   listResearchQueries,
   insertResearchQuery,
   getResearchQuery,
+  getResearchResult,
+  listResearchResultsByQueryId,
+  listCitationsByResultId,
   listVaultDocuments,
   insertVaultDocument,
   deleteVaultDocument,
 } from './db.js';
+import { runResearch } from './agent/runner.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -63,6 +67,56 @@ app.get('/api/queries/:id', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get query' });
+  }
+});
+
+app.post('/api/queries/:id/run', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+    const outcome = runResearch(id);
+    res.json(outcome);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Research run failed' });
+  }
+});
+
+app.get('/api/queries/:id/results', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+    const results = listResearchResultsByQueryId(id);
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to list results' });
+  }
+});
+
+app.get('/api/results/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+    const result = getResearchResult(id);
+    if (!result) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const citations = listCitationsByResultId(id);
+    res.json({ result, citations });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to get result' });
   }
 });
 
