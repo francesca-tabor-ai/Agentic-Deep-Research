@@ -49,7 +49,7 @@ export default function Metrics() {
         <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
             <Link href="/">
-              <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
+              <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale" aria-label="Back to home">
                 <ArrowLeft className="w-5 h-5" />
               </a>
             </Link>
@@ -69,7 +69,7 @@ export default function Metrics() {
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>

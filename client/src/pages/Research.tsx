@@ -155,7 +155,7 @@ export default function Research() {
       <main className="flex-1 min-w-0 flex flex-col">
         <header className="p-4 sm:p-6 border-b border-border flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>
@@ -183,7 +183,7 @@ export default function Research() {
                   type="button"
                   onClick={handleRunResearch}
                   disabled={runLoading}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 transition-opacity duration-200 shadow-soft"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 transition-opacity duration-200 shadow-soft tap-scale"
                 >
                   {runLoading ? (
                     <>

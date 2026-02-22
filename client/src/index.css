@@ -52,6 +52,16 @@
   }
 }
 
+/* Micro-interaction utilities */
+@layer utilities {
+  .tap-scale {
+    @apply transition-transform duration-150 active:scale-[0.98];
+  }
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-lg;
+  }
+}
+
 /* Signature gradient utility — use for hero badges, primary CTAs, highlights */
 @layer utilities {
   .bg-gradient-signature {

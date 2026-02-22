@@ -170,7 +170,7 @@ export default function PlatformChat() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-95 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-95 hover:scale-105 transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
         aria-label={open ? 'Close chat' : 'Open platform guide'}
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
@@ -179,7 +179,7 @@ export default function PlatformChat() {
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 z-40 flex w-full max-w-md flex-col rounded-3xl border border-border bg-card shadow-xl overflow-hidden"
+          className="fixed bottom-24 right-6 z-40 flex w-full max-w-md flex-col rounded-3xl border border-border bg-card shadow-xl overflow-hidden animate-scale-in"
           role="dialog"
           aria-label="Platform guide chat"
         >
@@ -237,7 +237,7 @@ export default function PlatformChat() {
                   key={probe}
                   type="button"
                   onClick={() => handleProbeClick(probe)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 hover:border-primary/30 transition-colors duration-200"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 hover:border-primary/30 transition-colors duration-200 tap-scale"
                 >
                   {probe}
                 </button>
@@ -257,7 +257,7 @@ export default function PlatformChat() {
             <button
               type="submit"
               disabled={!input.trim() || sending}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-95 disabled:opacity-50 transition-opacity"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-95 disabled:opacity-50 transition-opacity tap-scale"
               aria-label="Send"
             >
               <Send className="h-4 w-4" />

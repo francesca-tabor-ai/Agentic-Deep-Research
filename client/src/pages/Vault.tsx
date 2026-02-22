@@ -112,7 +112,7 @@ export default function Vault() {
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-4">
           <Link href="/">
-            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200" aria-label="Back to home">
+            <a className="p-2 rounded-2xl hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </a>
           </Link>
@@ -154,7 +154,7 @@ export default function Vault() {
               {documents.map((doc) => (
                 <li
                   key={doc.id}
-                  className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-start gap-3 shadow-soft"
+                  className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-start gap-3 shadow-soft hover-lift"
                 >
                   <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary">
                     <FileText className="w-5 h-5" />
@@ -285,7 +285,7 @@ export default function Vault() {
                     type="button"
                     onClick={handleAddAnnotation}
                     disabled={!newNote.trim() || addingNote}
-                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity tap-scale"
                   >
                     {addingNote ? 'Adding…' : 'Add'}
                   </button>

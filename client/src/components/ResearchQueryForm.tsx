@@ -127,7 +127,7 @@ export default function ResearchQueryForm({
       <button
         type="submit"
         disabled={!queryText.trim() || isSubmitting}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-200 shadow-soft"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-200 shadow-soft tap-scale"
       >
         {isSubmitting ? (
           <>

@@ -27,25 +27,25 @@ export default function Landing() {
           <nav className="flex items-center gap-8" aria-label="Main navigation">
             <Link
               href="/research"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale"
             >
               Research
             </Link>
             <Link
               href="/vault"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale"
             >
               Vault
             </Link>
             <Link
               href="/metrics"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 tap-scale"
             >
               Metrics
             </Link>
             <Link
               href="/research"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft tap-scale"
             >
               Start researching
               <ArrowRight className="w-4 h-4" aria-hidden />
@@ -70,7 +70,7 @@ export default function Landing() {
           </p>
           <Link
             href="/research"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-signature text-white font-semibold hover:opacity-95 transition-opacity duration-200 shadow-soft-lg"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-signature text-white font-semibold hover:opacity-95 transition-opacity duration-200 shadow-soft-lg tap-scale"
           >
             Go to Research
             <ArrowRight className="w-5 h-5" aria-hidden />
@@ -112,10 +112,11 @@ export default function Landing() {
                 description:
                   'Upload and reference your own documents. Research is aware of your workspace context.',
               },
-            ].map(({ icon: Icon, title, description }) => (
+            ].map(({ icon: Icon, title, description }, i) => (
               <div
                 key={title}
-                className="p-8 rounded-3xl border border-border bg-card text-foreground shadow-soft hover:shadow-soft-lg transition-shadow duration-200"
+                className="p-8 rounded-3xl border border-border bg-card text-foreground shadow-soft hover-lift animate-fade-in-up opacity-0"
+                style={{ animationDelay: `${75 + i * 75}ms`, animationFillMode: 'forwards' }}
               >
                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-5">
                   <Icon className="w-6 h-6" aria-hidden />
@@ -140,14 +141,14 @@ export default function Landing() {
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/research"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-medium hover:opacity-95 transition-opacity duration-200 shadow-soft tap-scale"
             >
               Research
               <ArrowRight className="w-4 h-4" aria-hidden />
             </Link>
             <Link
               href="/vault"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl border border-border bg-background font-medium text-foreground hover:bg-muted/60 transition-colors duration-200"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl border border-border bg-background font-medium text-foreground hover:bg-muted/60 transition-colors duration-200 tap-scale"
             >
               Vault
             </Link>

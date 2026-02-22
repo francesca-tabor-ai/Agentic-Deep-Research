@@ -1,28 +1,37 @@
 import { Suspense, lazy } from 'react';
 import { Switch, Route } from 'wouter';
-import Landing from '@/pages/Landing';
-import Research from '@/pages/Research';
-import Vault from '@/pages/Vault';
-import NotFound from '@/pages/NotFound';
-import PlatformChat from '@/components/PlatformChat';
+import ScrollToTop from '@/components/ScrollToTop';
 
+const Landing = lazy(() => import('@/pages/Landing'));
+const Research = lazy(() => import('@/pages/Research'));
+const Vault = lazy(() => import('@/pages/Vault'));
 const Metrics = lazy(() => import('@/pages/Metrics'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+const PlatformChat = lazy(() => import('@/components/PlatformChat'));
+
+const PageFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      <span className="text-sm text-muted-foreground">Loading…</span>
+    </div>
+  </div>
+);
 
 function App() {
   return (
     <>
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/research" component={Research} />
-        <Route path="/vault" component={Vault} />
-        <Route path="/metrics">
-          <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>}>
-            <Metrics />
-          </Suspense>
-        </Route>
-        <Route component={NotFound} />
-      </Switch>
-      <PlatformChat />
+      <ScrollToTop />
+      <Suspense fallback={<PageFallback />}>
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/research" component={Research} />
+          <Route path="/vault" component={Vault} />
+          <Route path="/metrics" component={Metrics} />
+          <Route component={NotFound} />
+        </Switch>
+        <PlatformChat />
+      </Suspense>
     </>
   );
 }

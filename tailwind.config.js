@@ -28,6 +28,35 @@ export default {
         'soft': '0 2px 8px -2px rgba(0,0,0,.06), 0 4px 16px -4px rgba(0,0,0,.08)',
         'soft-lg': '0 4px 20px -4px rgba(0,0,0,.08), 0 8px 32px -8px rgba(0,0,0,.1)',
       },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.96)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.3s ease-out forwards',
+        'fade-in-up': 'fade-in-up 0.4s ease-out forwards',
+        'scale-in': 'scale-in 0.25s ease-out forwards',
+      },
+      transitionDuration: {
+        '200': '200ms',
+        '250': '250ms',
+      },
+      animationDelay: {
+        '75': '75ms',
+        '150': '150ms',
+        '225': '225ms',
+        '300': '300ms',
+      },
     },
   },
   plugins: [],
