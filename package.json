@@ -1,0 +1,19 @@
+{
+  "name": "agentic-deep-research",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:init": "tsx server/db.ts init"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.6"
+  },
+  "dependencies": {
+    "sql.js": "^1.11.0"
+  }
+}

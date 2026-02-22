@@ -1,0 +1,15 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Build / env
+dist/
+.env
+.env.local
+*.log
+
+# SQLite data (optional; uncomment if you don't want to commit DB)
+# data/
